@@ -98,7 +98,7 @@ typedef struct _QUEUED_FILE
 } QUEUED_FILE;
 
 
-typedef struct COMPILER_RESULTS
+typedef struct _COMPILER_RESULTS
 {
   int errors;
   int warnings;
