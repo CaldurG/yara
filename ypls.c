@@ -125,7 +125,6 @@ typedef struct _MESSAGE
 	char* data;
 	unsigned int data_len;
 	char* variables[MAX_ARGS_EXT_VAR + 1];
-	unsigned int var_count;
 } MESSAGE;
 
 
@@ -1131,10 +1130,13 @@ int scan(YR_RULES *rules, MESSAGE* message)
 		flags |= SCAN_FLAGS_FAST_MODE;
 
 	for (int i = 0; i < MAX_ARGS_EXT_VAR; i++)
-		ext_vars[i] = (i < message->var_count) ? message->variables[i] : NULL;
+		ext_vars[i] = message->variables[i];
 	
-	if (!define_external_variables(rules, NULL))
+	if (define_external_variables(rules, NULL) != ERROR_SUCCESS)
+	{
+		fprintf(stderr, "error defining variables\n");
 		exit_with_code(EXIT_FAILURE);
+	}
 
 	switch (message->type)
 	{
@@ -1167,7 +1169,7 @@ int scan(YR_RULES *rules, MESSAGE* message)
 			timeout);
 		break;
 	default:
-		fprintf(stderr, "unknown message type %c", message->type);
+		fprintf(stderr, "unknown message type %c\n", message->type);
 		exit_with_code(EXIT_FAILURE);
 	}	
 
@@ -1190,9 +1192,8 @@ int free_message(MESSAGE *msg)
 	if (msg->data)
 		free(msg->data);
 
-	for (int i = 0; i < msg->var_count; i++)
-		if (msg->variables[i])
-			free(msg->variables[i]);
+	for (char **p = msg->variables; *p != NULL; p++)
+		free(*p);
 
 	memset(msg, 0, sizeof(MESSAGE));
 	return EXIT_SUCCESS;
@@ -1245,6 +1246,7 @@ int read_variables(MESSAGE *msg)
 {
 	int result = ERROR_SUCCESS;
 	char *line;
+	int var_count = 0;
 
 	while (TRUE)
 	{
@@ -1255,8 +1257,8 @@ int read_variables(MESSAGE *msg)
 		if (*line == '\0')
 			break;
 		
-		if (msg->var_count < MAX_ARGS_EXT_VAR)
-			msg->variables[msg->var_count++] = line;
+		if (var_count < MAX_ARGS_EXT_VAR)
+			msg->variables[var_count++] = line;
 	}
 
 _exit:
@@ -1277,16 +1279,22 @@ int get_message(MESSAGE *msg)
 		exit_with_code(ERROR_SUCCESS);
 	case MSG_TYPE_DATA:
 		line = read_line();
-		if (!line)
-			exit_with_code(EXIT_FAILURE);
+		if (line)
+		{
+			msg->data_len = atoi(line);
+			msg->data = read_data(msg->data_len);
+			if (msg->data)
+				break;
+		}
 		
-		msg->data_len = atoi(line);
-		msg->data = read_data(msg->data_len);
+		exit_with_code(EXIT_FAILURE);
 	case MSG_TYPE_FILE:
 	case MSG_TYPE_PROCESS:
 		msg->data = read_line();
-		if (!msg->data)
-			exit_with_code(EXIT_FAILURE);
+		if (msg->data)
+			break;
+
+		exit_with_code(EXIT_FAILURE);
 	default:
 		fprintf(stderr, "invalid message type %c", msg->type);
 		exit_with_code(EXIT_FAILURE);
@@ -1314,9 +1322,10 @@ int main(int argc, const char** argv)
 #endif
 
 	YR_RULES* rules = NULL;
+	int result;
 	MESSAGE message;
-	int result, i;
-
+	memset(&message, 0, sizeof(MESSAGE));
+	
 	result = process_arguments(argc, argv);
 	if (result != CONTINUE)
 		exit_with_code(result);
@@ -1344,7 +1353,7 @@ int main(int argc, const char** argv)
 		exit_with_code(EXIT_FAILURE);
 
 	mutex_init(&output_mutex);
-
+	
 	while (result == ERROR_SUCCESS) {
 		result = get_message(&message);
 		if (result != ERROR_SUCCESS)
@@ -1356,8 +1365,8 @@ int main(int argc, const char** argv)
 		result = scan(rules, &message);
 
 		fprintf(stdout, "\n");
-		fflush(stdout);
 		fprintf(stderr, "\n");
+		fflush(stdout);
 		fflush(stderr);
 
 		free_message(&message);
