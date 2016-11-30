@@ -48,6 +48,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <fcntl.h>
+#include <io.h>
 
 #include <yara.h>
 
@@ -80,6 +82,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define MSG_TYPE_DATA 'D'
 #define MSG_TYPE_PROCESS 'P'
 #define MSG_TYPE_QUIT 'Q'
+#define MSG_TYPE_READY 'R'
 
 #define MAX_ARGS_TAG            32
 #define MAX_ARGS_IDENTIFIER     32
@@ -121,7 +124,7 @@ typedef struct _COMPILER_RESULTS
 
 typedef struct _MESSAGE
 {
-	char type;
+	int type;
 	char* data;
 	unsigned int data_len;
 	char* variables[MAX_ARGS_EXT_VAR + 1];
@@ -150,6 +153,7 @@ int limit = 0;
 int timeout = 1000000;
 int stack_size = DEFAULT_STACK_SIZE;
 int fail_on_warnings = FALSE;
+int show_str_len = FALSE;
 
 
 #define USAGE_STRING \
@@ -211,6 +215,9 @@ args_option_t options[] =
 
 	OPT_BOOLEAN('h', "help", &show_help,
 	"show this help and exit"),
+
+	OPT_BOOLEAN('L', "print-string-length", &show_str_len,
+	"print length of matched strings"),
 
 	OPT_END()
 };
@@ -668,7 +675,7 @@ int handle_message(
 
 		// Show matched strings.
 
-		if (show_strings)
+		if (show_strings || show_str_len)
 		{
 			YR_STRING* string;
 
@@ -678,14 +685,20 @@ int handle_message(
 
 				yr_string_matches_foreach(string, match)
 				{
-					printf("0x%" PRIx64 ":%s: ",
-						match->base + match->offset,
-						string->identifier);
-
-					if (STRING_IS_HEX(string))
-						print_hex_string(match->data, match->data_length);
+					if (show_str_len)
+						printf("0x%" PRIx64 ":%d:%s", match->base + match->offset, match->data_length, string->identifier);
 					else
-						print_string(match->data, match->data_length);
+						printf("0x%" PRIx64 ":%s", match->base + match->offset, string->identifier);
+
+					if (show_strings) {
+						printf(": ");
+						if (STRING_IS_HEX(string))
+							print_hex_string(match->data, match->data_length);
+						else
+							print_string(match->data, match->data_length);
+					}
+					else
+						printf("\n");
 				}
 			}
 		}
@@ -1135,7 +1148,7 @@ int scan(YR_RULES *rules, MESSAGE* message)
 	if (define_external_variables(rules, NULL) != ERROR_SUCCESS)
 	{
 		fprintf(stderr, "error defining variables\n");
-		exit_with_code(EXIT_FAILURE);
+		exit_with_code(ERROR_SUCCESS);
 	}
 
 	switch (message->type)
@@ -1178,6 +1191,8 @@ int scan(YR_RULES *rules, MESSAGE* message)
 		fprintf(stderr, "error scanning %s: ", message->data);
 		print_scanner_error(result);
 	}
+
+	result = ERROR_SUCCESS;
 	
 #ifdef PROFILING_ENABLED
 	yr_rules_print_profiling_info(rules);
@@ -1207,15 +1222,17 @@ char* read_line()
 
 	memset(line, 0, MAX_LINE);
 	for (char *p = line; p < line + MAX_LINE; p++) {
-		*p = getc(stdin);
-		switch (*p)
+		int c = getc(stdin);
+		switch (c)
 		{
-		case -1:
+		case EOF:
 			free(line);
 			return NULL;
 		case '\n':
 			*p = '\0';
 			return line;
+		default:
+			*p = c;
 		}
 	}
 
@@ -1225,20 +1242,27 @@ char* read_line()
 
 char *read_data(int len)
 {
+	int old_mode = _setmode(_fileno(stdin), _O_BINARY);
+	if (old_mode == -1)
+		return NULL;
+
 	char* data = (char*)malloc(len);
 	if (!data)
 		return NULL;
 
-	for (char *p = data; p < data + len; p++)
+	for (int i = 0; i < len; i++)
 	{
-		*p = getc(stdin);
-		if (*p == -1)
-		{
+		int c = getc(stdin);
+		if (c == EOF) {
 			free(data);
-			return NULL;
+			data = NULL;
+			break;
 		}
+
+		data[i] = c;
 	}
 
+	_setmode(_fileno(stdin), old_mode);
 	return data;
 }
 
@@ -1270,12 +1294,16 @@ int get_message(MESSAGE *msg)
 	int result;
 	char* line = NULL;
 	
-	msg->type = getc(stdin);
+	do
+		msg->type = getc(stdin);
+	while (msg->type == '\n');
+
 	switch (msg->type)
 	{
-	case -1:
+	case EOF:
 		exit_with_code(EXIT_FAILURE);
 	case MSG_TYPE_QUIT:
+	case MSG_TYPE_READY:
 		exit_with_code(ERROR_SUCCESS);
 	case MSG_TYPE_DATA:
 		line = read_line();
@@ -1313,6 +1341,11 @@ _exit:
 
 int main(int argc, const char** argv)
 {
+	YR_RULES* rules = NULL;
+	int result;
+	MESSAGE message;
+	memset(&message, 0, sizeof(MESSAGE));
+
 #if defined(_WIN32) || defined(__CYGWIN__)
 	if (!(SetConsoleCP(CP_UTF8) && SetConsoleOutputCP(CP_UTF8)))
 	{
@@ -1320,11 +1353,6 @@ int main(int argc, const char** argv)
 		return EXIT_FAILURE;
 	}
 #endif
-
-	YR_RULES* rules = NULL;
-	int result;
-	MESSAGE message;
-	memset(&message, 0, sizeof(MESSAGE));
 	
 	result = process_arguments(argc, argv);
 	if (result != CONTINUE)
@@ -1357,12 +1385,18 @@ int main(int argc, const char** argv)
 	while (result == ERROR_SUCCESS) {
 		result = get_message(&message);
 		if (result != ERROR_SUCCESS)
+		{
+			fprintf(stderr, "error getting message");
 			exit_with_code(result);
+		}
 
 		if (message.type == MSG_TYPE_QUIT)
 			break;
 
-		result = scan(rules, &message);
+		if (message.type == MSG_TYPE_READY)
+			printf("READY\n");
+		else
+			result = scan(rules, &message);
 
 		fprintf(stdout, "\n");
 		fprintf(stderr, "\n");
