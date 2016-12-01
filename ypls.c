@@ -1339,6 +1339,15 @@ _exit:
 	return result;
 }
 
+int end_message(MESSAGE* message) {
+	fprintf(stdout, "\n");
+	fprintf(stderr, "\n");
+	fflush(stdout);
+	fflush(stderr);
+
+	return free_message(message);
+}
+
 int main(int argc, const char** argv)
 {
 	YR_RULES* rules = NULL;
@@ -1398,12 +1407,7 @@ int main(int argc, const char** argv)
 		else
 			result = scan(rules, &message);
 
-		fprintf(stdout, "\n");
-		fprintf(stderr, "\n");
-		fflush(stdout);
-		fflush(stderr);
-
-		free_message(&message);
+		end_message(&message);
 	}
 
 _exit:

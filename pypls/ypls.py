@@ -4,9 +4,17 @@ import subprocess
 import logging
 import tempfile
 
-import thread
+try:
+    from internal_systems import thread
+except ImportError:
+    import thread
 
-YPLS_EXE = r"D:\Projects\YaraGithub\yara\windows\vs2015\Debug\ypls64.exe"
+try:
+    from internal_systems import CFG
+    YPLS_EXE = CFG.get("yara", "ypls64")
+except ImportError:
+    YPLS_EXE = r"D:\Projects\YaraGithub\yara\windows\vs2015\Release\ypls64.exe"
+
 LOGGER = logging.getLogger(__name__)
 
 # file for testing yara rules
@@ -48,6 +56,8 @@ class Ypls:
         self.max_str_matches = max_str_matches
         self.safe = safe
         self.proc = None
+        self.output = list()
+        self.return_code = None
 
     def __enter__(self):
         self.start()
@@ -61,9 +71,12 @@ class Ypls:
         return self.proc and self.proc.poll() is None
 
     def close(self):
-        if self.is_running():
-            self.proc.communicate(b"Q")
-            self.proc.wait()
+        if not self.proc:
+            return
+
+        cmd = b"Q" if self.is_running() else None
+        self.output.append(self.proc.communicate(cmd))
+        self.return_code = self.proc.wait()
 
         self.proc = None
 
@@ -90,6 +103,9 @@ class Ypls:
         args.append(self.rules)
         self.proc = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                      stdin=subprocess.PIPE, creationflags=subprocess.CREATE_NEW_CONSOLE)
+
+        if not self.is_ready():
+            raise YplsError("Ypls did not start properly")
 
     def check_rules(self):
         """ Checks whether rules file with our added rule matches our test file. If not, raise exception. """
@@ -174,7 +190,7 @@ class Ypls:
         self.proc.stdin.write(cmd)
         self.proc.stdin.flush()
 
-    def is_ready(self, timeout):
+    def is_ready(self):
         if not self.is_running():
             return False
 
@@ -183,8 +199,12 @@ class Ypls:
             stdout = self._read_output_thread(self.proc.stdout)
             stderr = self._read_output_thread(self.proc.stderr)
 
-            stdout = stdout.join(timeout, True)
-            stderr = stderr.join(timeout, True)
+            stdout = stdout.join(self.timeout, True)
+            stderr = stderr.join(self.timeout, True)
+
+            if stderr:
+                LOGGER.error(str(stderr))
+
             return stdout and stdout[0] == "READY"
         except (OSError, TimeoutError):
             return False
@@ -224,7 +244,7 @@ class Ypls:
 
 
 def test():
-    ypls_exe = r"D:\Projects\YaraGithub\yara\windows\vs2015\Debug\ypls64.exe"
+    ypls_exe = r"D:\Projects\YaraGithub\yara\windows\vs2015\Release\ypls64.exe"
     variables = {"threat": str(None), "source": "file", "parent_threat": str(None)}
     with open(ypls_exe, "rb") as f:
         data = f.read()
@@ -233,6 +253,8 @@ def test():
         print(ypls.scan_process(ypls.proc.pid))
         print(ypls.scan_file(ypls_exe))
         print(ypls.scan_data(data))
+
+    print(ypls.return_code, ypls.output)
 
 
 if __name__ == '__main__':
