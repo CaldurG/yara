@@ -824,6 +824,8 @@ arguments_list
           case EXPRESSION_TYPE_REGEXP:
             strlcpy($$, "r", MAX_FUNCTION_ARGS);
             break;
+          default:
+            assert(FALSE);
         }
 
         ERROR_IF($$ == NULL);
@@ -853,6 +855,8 @@ arguments_list
             case EXPRESSION_TYPE_REGEXP:
               strlcat($1, "r", MAX_FUNCTION_ARGS);
               break;
+            default:
+              assert(FALSE);
           }
         }
 
@@ -1014,6 +1018,16 @@ expression
         ERROR_IF(compiler->last_result!= ERROR_SUCCESS);
 
         $$.type = EXPRESSION_TYPE_BOOLEAN;
+      }
+    | _FOR_ for_expression error
+      {
+        if (compiler->loop_depth > 0)
+        {
+          compiler->loop_depth--;
+          compiler->loop_identifier[compiler->loop_depth] = NULL;
+        }
+
+        YYERROR;
       }
     | _FOR_ for_expression _IDENTIFIER_ _IN_
       {
@@ -1210,7 +1224,7 @@ expression
             yyscanner, OP_INCR_M, mem_offset + 2, NULL, NULL);
 
         // If next string is not undefined, go back to the
-        // begining of the loop.
+        // beginning of the loop.
         yr_parser_emit_with_arg_reloc(
             yyscanner,
             OP_JNUNDEF,
@@ -1268,7 +1282,7 @@ expression
         fixup = (YR_FIXUP*) yr_malloc(sizeof(YR_FIXUP));
 
         if (fixup == NULL)
-          compiler->last_error = ERROR_INSUFICIENT_MEMORY;
+          compiler->last_error = ERROR_INSUFFICIENT_MEMORY;
 
         ERROR_IF(compiler->last_result != ERROR_SUCCESS);
 
@@ -1329,7 +1343,7 @@ expression
         fixup = (YR_FIXUP*) yr_malloc(sizeof(YR_FIXUP));
 
         if (fixup == NULL)
-          compiler->last_error = ERROR_INSUFICIENT_MEMORY;
+          compiler->last_error = ERROR_INSUFFICIENT_MEMORY;
 
         ERROR_IF(compiler->last_result != ERROR_SUCCESS);
 

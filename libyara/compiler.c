@@ -51,7 +51,7 @@ YR_API int yr_compiler_create(
   new_compiler = (YR_COMPILER*) yr_calloc(1, sizeof(YR_COMPILER));
 
   if (new_compiler == NULL)
-    return ERROR_INSUFICIENT_MEMORY;
+    return ERROR_INSUFFICIENT_MEMORY;
 
   new_compiler->errors = 0;
   new_compiler->callback = NULL;
@@ -141,7 +141,7 @@ YR_API void yr_compiler_destroy(
   yr_arena_destroy(compiler->automaton_arena);
   yr_arena_destroy(compiler->matches_arena);
 
-    yr_ac_automaton_destroy(compiler->automaton);
+  yr_ac_automaton_destroy(compiler->automaton);
 
   yr_hash_table_destroy(
       compiler->rules_table,
@@ -234,7 +234,7 @@ int _yr_compiler_push_file_name(
     str = yr_strdup(file_name);
 
     if (str == NULL)
-      return ERROR_INSUFICIENT_MEMORY;
+      return ERROR_INSUFFICIENT_MEMORY;
 
     compiler->file_name_stack[compiler->file_name_stack_ptr] = str;
     compiler->file_name_stack_ptr++;
@@ -607,7 +607,7 @@ YR_API int yr_compiler_get_rules(
   yara_rules = (YR_RULES*) yr_malloc(sizeof(YR_RULES));
 
   if (yara_rules == NULL)
-    return ERROR_INSUFICIENT_MEMORY;
+    return ERROR_INSUFFICIENT_MEMORY;
 
   FAIL_ON_ERROR_WITH_CLEANUP(
       yr_arena_duplicate(compiler->compiled_rules_arena, &yara_rules->arena),
@@ -817,7 +817,7 @@ YR_API char* yr_compiler_get_error_message(
 {
   switch(compiler->last_error)
   {
-    case ERROR_INSUFICIENT_MEMORY:
+    case ERROR_INSUFFICIENT_MEMORY:
       snprintf(buffer, buffer_size, "not enough memory");
       break;
     case ERROR_DUPLICATED_IDENTIFIER:
