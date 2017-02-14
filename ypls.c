@@ -515,7 +515,7 @@ void print_scanner_error(
 	case ERROR_COULD_NOT_ATTACH_TO_PROCESS:
 		fprintf(stderr, "can not attach to process (try running as root)\n");
 		break;
-	case ERROR_INSUFICIENT_MEMORY:
+	case ERROR_INSUFFICIENT_MEMORY:
 		fprintf(stderr, "not enough memory\n");
 		break;
 	case ERROR_SCAN_TIMEOUT:
@@ -1148,7 +1148,7 @@ int scan(YR_RULES *rules, MESSAGE* message)
 	if (define_external_variables(rules, NULL) != ERROR_SUCCESS)
 	{
 		fprintf(stderr, "error defining variables\n");
-		exit_with_code(ERROR_SUCCESS);
+		exit_with_code(EXIT_FAILURE);
 	}
 
 	switch (message->type)
@@ -1187,12 +1187,7 @@ int scan(YR_RULES *rules, MESSAGE* message)
 	}	
 
 	if (result != ERROR_SUCCESS)
-	{
-		fprintf(stderr, "error scanning %s: ", message->data);
 		print_scanner_error(result);
-	}
-
-	result = ERROR_SUCCESS;
 	
 #ifdef PROFILING_ENABLED
 	yr_rules_print_profiling_info(rules);
@@ -1324,7 +1319,7 @@ int get_message(MESSAGE *msg)
 
 		exit_with_code(EXIT_FAILURE);
 	default:
-		fprintf(stderr, "invalid message type %c", msg->type);
+		fprintf(stderr, "invalid message type %c\n", msg->type);
 		exit_with_code(EXIT_FAILURE);
 	}
 
@@ -1395,7 +1390,7 @@ int main(int argc, const char** argv)
 		result = get_message(&message);
 		if (result != ERROR_SUCCESS)
 		{
-			fprintf(stderr, "error getting message");
+			fprintf(stderr, "error getting message\n");
 			exit_with_code(result);
 		}
 
@@ -1412,7 +1407,7 @@ int main(int argc, const char** argv)
 
 _exit:
 	unload_modules_data();
-	free_message(&message);
+	end_message(&message);
 
 	if (rules != NULL)
 		yr_rules_destroy(rules);
