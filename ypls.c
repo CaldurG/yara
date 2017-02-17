@@ -41,6 +41,14 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define PRIx64 "I64x"
 #define PRId64 "I64d"
 
+#if defined(_DEBUG)
+
+#define _CRTDBG_MAP_ALLOC
+#include <stdlib.h>
+#include <crtdbg.h>
+
+#endif
+
 #endif
 
 #include <time.h>
@@ -77,6 +85,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define CONTINUE -1
 #define exit_with_code(code) { result = code; goto _exit; }
 #define MAX_LINE 4096
+#define STEP 1024
 
 #define MSG_TYPE_FILE 'F'
 #define MSG_TYPE_DATA 'D'
@@ -1144,7 +1153,7 @@ int scan(YR_RULES *rules, MESSAGE* message)
 
 	for (int i = 0; i < MAX_ARGS_EXT_VAR; i++)
 		ext_vars[i] = message->variables[i];
-	
+
 	if (define_external_variables(rules, NULL) != ERROR_SUCCESS)
 	{
 		fprintf(stderr, "error defining variables\n");
@@ -1184,17 +1193,29 @@ int scan(YR_RULES *rules, MESSAGE* message)
 	default:
 		fprintf(stderr, "unknown message type %c\n", message->type);
 		exit_with_code(EXIT_FAILURE);
-	}	
+	}
 
 	if (result != ERROR_SUCCESS)
 		print_scanner_error(result);
-	
+
 #ifdef PROFILING_ENABLED
 	yr_rules_print_profiling_info(rules);
 #endif
 
 _exit:
 	return result;
+}
+
+inline void ok()
+{
+	fprintf(stdout, "OK\n");
+	fflush(stdout);
+}
+
+inline void fail()
+{
+	fprintf(stdout, "FAIL\n");
+	fflush(stdout);
 }
 
 int free_message(MESSAGE *msg)
@@ -1218,21 +1239,29 @@ char* read_line()
 	memset(line, 0, MAX_LINE);
 	for (char *p = line; p < line + MAX_LINE; p++) {
 		int c = getc(stdin);
-		switch (c)
+		if (c == EOF)
 		{
-		case EOF:
 			free(line);
-			return NULL;
-		case '\n':
-			*p = '\0';
-			return line;
-		default:
-			*p = c;
+			line = NULL;
+			break;
 		}
+
+		if (c == '\n')
+			break;
+
+		*p = (char)c;
 	}
 
-	free(line);
-	return NULL;
+	if (line)
+		ok();
+	
+	return line;
+}
+
+void write(char *file, char *msg) {
+	FILE *f = fopen(file, "a");
+	fprintf(f, msg);
+	fclose(f);
 }
 
 char *read_data(int len)
@@ -1247,6 +1276,9 @@ char *read_data(int len)
 
 	for (int i = 0; i < len; i++)
 	{
+		if ((i != 0) && (i % STEP == 0))
+			ok();
+
 		int c = getc(stdin);
 		if (c == EOF) {
 			free(data);
@@ -1254,8 +1286,11 @@ char *read_data(int len)
 			break;
 		}
 
-		data[i] = c;
+		data[i] = (char)c;
 	}
+
+	if (data)
+		ok();
 
 	_setmode(_fileno(stdin), old_mode);
 	return data;
@@ -1274,7 +1309,10 @@ int read_variables(MESSAGE *msg)
 			exit_with_code(EXIT_FAILURE);
 		
 		if (*line == '\0')
+		{
+			free(line);
 			break;
+		}
 		
 		if (var_count < MAX_ARGS_EXT_VAR)
 			msg->variables[var_count++] = line;
@@ -1296,9 +1334,11 @@ int get_message(MESSAGE *msg)
 	switch (msg->type)
 	{
 	case EOF:
+		fprintf(stderr, "stdin closed\n");
 		exit_with_code(EXIT_FAILURE);
 	case MSG_TYPE_QUIT:
 	case MSG_TYPE_READY:
+		ok();
 		exit_with_code(ERROR_SUCCESS);
 	case MSG_TYPE_DATA:
 		line = read_line();
@@ -1310,6 +1350,7 @@ int get_message(MESSAGE *msg)
 				break;
 		}
 		
+		fprintf(stderr, "error reading message data\n");
 		exit_with_code(EXIT_FAILURE);
 	case MSG_TYPE_FILE:
 	case MSG_TYPE_PROCESS:
@@ -1317,6 +1358,7 @@ int get_message(MESSAGE *msg)
 		if (msg->data)
 			break;
 
+		fprintf(stderr, "error reading message\n");
 		exit_with_code(EXIT_FAILURE);
 	default:
 		fprintf(stderr, "invalid message type %c\n", msg->type);
@@ -1324,8 +1366,10 @@ int get_message(MESSAGE *msg)
 	}
 
 	result = read_variables(msg);
-	if (result != ERROR_SUCCESS)
+	if (result != ERROR_SUCCESS) {
+		fprintf(stderr, "error reading variables\n");
 		exit_with_code(EXIT_FAILURE);
+	}
 	
 _exit:
 	if (line)
@@ -1388,31 +1432,32 @@ int main(int argc, const char** argv)
 	
 	while (result == ERROR_SUCCESS) {
 		result = get_message(&message);
-		if (result != ERROR_SUCCESS)
+		if (result == ERROR_SUCCESS)
 		{
-			fprintf(stderr, "error getting message\n");
-			exit_with_code(result);
+			if (message.type == MSG_TYPE_QUIT)
+				break;
+
+			if (message.type != MSG_TYPE_READY)
+				result = scan(rules, &message);
 		}
-
-		if (message.type == MSG_TYPE_QUIT)
-			break;
-
-		if (message.type == MSG_TYPE_READY)
-			printf("READY\n");
 		else
-			result = scan(rules, &message);
+			fail();
 
 		end_message(&message);
 	}
 
 _exit:
 	unload_modules_data();
-	end_message(&message);
+	free_message(&message);
 
 	if (rules != NULL)
 		yr_rules_destroy(rules);
 
 	yr_finalize();
+
+#if defined(_DEBUG)
+	_CrtDumpMemoryLeaks();
+#endif
 
 	return result;
 }
