@@ -1251,9 +1251,6 @@ char* read_line()
 
 		*p = (char)c;
 	}
-
-	if (line)
-		ok();
 	
 	return line;
 }
@@ -1276,7 +1273,7 @@ char *read_data(int len)
 
 	for (int i = 0; i < len; i++)
 	{
-		if ((i != 0) && (i % STEP == 0))
+		if (i % STEP == 0)
 			ok();
 
 		int c = getc(stdin);
@@ -1307,7 +1304,9 @@ int read_variables(MESSAGE *msg)
 		line = read_line();
 		if (!line)
 			exit_with_code(EXIT_FAILURE);
-		
+
+		ok();
+
 		if (*line == '\0')
 		{
 			free(line);
@@ -1325,44 +1324,48 @@ _exit:
 int get_message(MESSAGE *msg)
 {
 	int result;
-	char* line = NULL;
 	
-	do
-		msg->type = getc(stdin);
-	while (msg->type == '\n');
-
-	switch (msg->type)
-	{
-	case EOF:
-		fprintf(stderr, "stdin closed\n");
+	char* line = read_line();
+	if (line == NULL)
 		exit_with_code(EXIT_FAILURE);
-	case MSG_TYPE_QUIT:
-	case MSG_TYPE_READY:
+
+	msg->type = line[0];
+	free(line);
+
+	if ((msg->type == MSG_TYPE_QUIT) || (msg->type == MSG_TYPE_READY) || (msg->type == MSG_TYPE_PROCESS) || (msg->type == MSG_TYPE_DATA) || (msg->type == MSG_TYPE_FILE))
 		ok();
-		exit_with_code(ERROR_SUCCESS);
-	case MSG_TYPE_DATA:
-		line = read_line();
-		if (line)
-		{
-			msg->data_len = atoi(line);
-			msg->data = read_data(msg->data_len);
-			if (msg->data)
-				break;
-		}
-		
-		fprintf(stderr, "error reading message data\n");
-		exit_with_code(EXIT_FAILURE);
-	case MSG_TYPE_FILE:
-	case MSG_TYPE_PROCESS:
-		msg->data = read_line();
-		if (msg->data)
-			break;
-
-		fprintf(stderr, "error reading message\n");
-		exit_with_code(EXIT_FAILURE);
-	default:
+	else
+	{
 		fprintf(stderr, "invalid message type %c\n", msg->type);
 		exit_with_code(EXIT_FAILURE);
+	}
+
+	if ((msg->type == MSG_TYPE_QUIT) || (msg->type == MSG_TYPE_READY))
+		exit_with_code(ERROR_SUCCESS);
+
+	line = read_line();
+	if (line == NULL)
+	{
+		fprintf(stderr, "error reading message argument\n");
+		exit_with_code(EXIT_FAILURE);
+	}
+
+	if (msg->type == MSG_TYPE_DATA)
+	{
+		msg->data_len = atoi(line);
+		free(line);
+
+		msg->data = read_data(msg->data_len);
+		if (msg->data == NULL)
+		{
+			fprintf(stderr, "error reading message data\n");
+			exit_with_code(EXIT_FAILURE);
+		}
+	}
+	else
+	{
+		msg->data = line;
+		ok();
 	}
 
 	result = read_variables(msg);
@@ -1372,9 +1375,6 @@ int get_message(MESSAGE *msg)
 	}
 	
 _exit:
-	if (line)
-		free(line);
-
 	return result;
 }
 
