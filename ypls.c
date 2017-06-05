@@ -1263,10 +1263,6 @@ void write(char *file, char *msg) {
 
 char *read_data(int len)
 {
-	int old_mode = _setmode(_fileno(stdin), _O_BINARY);
-	if (old_mode == -1)
-		return NULL;
-
 	char* data = (char*)malloc(len);
 	if (!data)
 		return NULL;
@@ -1289,7 +1285,6 @@ char *read_data(int len)
 	if (data)
 		ok();
 
-	_setmode(_fileno(stdin), old_mode);
 	return data;
 }
 
@@ -1394,14 +1389,10 @@ int main(int argc, const char** argv)
 	MESSAGE message;
 	memset(&message, 0, sizeof(MESSAGE));
 
-#if defined(_WIN32) || defined(__CYGWIN__)
-	if (!(SetConsoleCP(CP_UTF8) && SetConsoleOutputCP(CP_UTF8)))
-	{
-		fprintf(stderr, "Unable to set code page to utf-8\n");
-		return EXIT_FAILURE;
-	}
-#endif
-	
+	result = _setmode(_fileno(stdin), _O_BINARY);
+	if (result == -1)
+		exit_with_code(result);
+
 	result = process_arguments(argc, argv);
 	if (result != CONTINUE)
 		exit_with_code(result);
