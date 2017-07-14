@@ -146,6 +146,7 @@ hexdigit      [a-fA-F0-9]
 "wide"                  { return _WIDE_;        }
 "fullword"              { return _FULLWORD_;    }
 "nocase"                { return _NOCASE_;      }
+"leet"                  { return _LEET_;        }
 "condition"             { return _CONDITION_;   }
 "true"                  { return _TRUE_;        }
 "false"                 { return _FALSE_;       }

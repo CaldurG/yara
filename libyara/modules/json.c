@@ -22,7 +22,7 @@ define_function(has_key) {
 
 begin_declarations;
 
-    declare_function("has_key", "s", "i", has_key);
+	declare_function("has_key", "s", "i", has_key);
 	declare_string_dictionary("keys");
 
 end_declarations;

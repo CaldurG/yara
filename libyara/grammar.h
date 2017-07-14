@@ -93,7 +93,8 @@ extern int yara_yydebug;
     _SHIFT_LEFT_ = 303,
     _SHIFT_RIGHT_ = 304,
     _NOT_ = 305,
-    UNARY_MINUS = 306
+    UNARY_MINUS = 306,
+    _LEET_ = 307
   };
 #endif
 /* Tokens.  */
@@ -146,6 +147,7 @@ extern int yara_yydebug;
 #define _SHIFT_RIGHT_ 304
 #define _NOT_ 305
 #define UNARY_MINUS 306
+#define _LEET_ 307
 
 /* Value type.  */
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED

@@ -131,6 +131,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 %token _ASCII_
 %token _WIDE_
 %token _NOCASE_
+%token _LEET_
 %token _FULLWORD_
 %token _AT_
 %token _FILESIZE_
@@ -560,6 +561,7 @@ string_modifier
     | _ASCII_       { $$ = STRING_GFLAGS_ASCII; }
     | _NOCASE_      { $$ = STRING_GFLAGS_NO_CASE; }
     | _FULLWORD_    { $$ = STRING_GFLAGS_FULL_WORD; }
+    | _LEET_        { $$ = STRING_GFLAGS_LEET; }
     ;
 
 
