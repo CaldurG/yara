@@ -32,8 +32,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <yara/strutils.h>
 
-#include "config.h"
-
 uint64_t xtoi(
     const char* hexstr)
 {
@@ -73,6 +71,36 @@ uint64_t xtoi(
       case 'E':
       case 'F':
         r |= ((uint64_t)(hexstr[i] - 'A' + 10)) << ((l - i - 1) * 4);
+        break;
+      default:
+        i = l;  // force loop exit
+    }
+  }
+
+  return r;
+}
+
+uint64_t otoi(
+    const char* octstr)
+{
+  size_t i;
+  size_t l = strlen(octstr);
+
+  uint64_t r = 0;
+
+  for (i = 0; i < l; i++)
+  {
+    switch (octstr[i])
+    {
+      case '0':
+      case '1':
+      case '2':
+      case '3':
+      case '4':
+      case '5':
+      case '6':
+      case '7':
+        r |= ((uint64_t)(octstr[i] - '0')) << ((l - i - 1) * 3);
         break;
       default:
         i = l;  // force loop exit

@@ -48,6 +48,7 @@ from files.
 #include <yara/mem.h>
 #include <yara/error.h>
 #include <yara/limits.h>
+#include <yara/hash.h>
 
 #pragma pack(push)
 #pragma pack(1)
@@ -56,7 +57,7 @@ typedef struct _ARENA_FILE_HEADER
 {
   char      magic[4];
   uint32_t  size;
-  uint8_t   version;
+  uint32_t  version;
 
 } ARENA_FILE_HEADER;
 
@@ -146,6 +147,7 @@ YR_ARENA_PAGE* _yr_arena_page_for_address(
     if ((uint8_t*) address >= page->address &&
         (uint8_t*) address < page->address + page->used)
       return page;
+
     page = page->next;
   }
 
@@ -316,7 +318,7 @@ void yr_arena_destroy(
 //    YR_ARENA* arena  - Pointer to the arena.
 //
 // Returns:
-//    A pointer to the arena's data. NULL if the no data has been written to
+//    A pointer to the arena's data. NULL if no data has been written to
 //    the arena yet.
 //
 
@@ -449,7 +451,7 @@ int yr_arena_coalesce(
 
     reloc = page->reloc_list_head;
 
-    while(reloc != NULL)
+    while (reloc != NULL)
     {
       reloc->offset += (uint32_t) big_page->used;
       reloc = reloc->next;
@@ -919,6 +921,8 @@ int yr_arena_load_stream(
   YR_ARENA* new_arena;
   ARENA_FILE_HEADER header;
 
+  uint32_t real_hash;
+  uint32_t file_hash;
   uint32_t reloc_offset;
   uint8_t** reloc_address;
   uint8_t* reloc_target;
@@ -942,6 +946,8 @@ int yr_arena_load_stream(
   if (header.version != ARENA_FILE_VERSION)
     return ERROR_UNSUPPORTED_FILE_VERSION;
 
+  real_hash = yr_hash(0, &header, sizeof(header));
+
   result = yr_arena_create(header.size, 0, &new_arena);
 
   if (result != ERROR_SUCCESS)
@@ -956,6 +962,8 @@ int yr_arena_load_stream(
   }
 
   page->used = header.size;
+
+  real_hash = yr_hash(real_hash, page->address, page->used);
 
   if (yr_stream_read(&reloc_offset, sizeof(reloc_offset), 1, stream) != 1)
   {
@@ -988,6 +996,14 @@ int yr_arena_load_stream(
     }
   }
 
+  yr_stream_read(&file_hash, sizeof(file_hash), 1, stream);
+
+  if (file_hash != real_hash)
+  {
+    yr_arena_destroy(new_arena);
+    return ERROR_CORRUPT_FILE;
+  }
+
   *arena = new_arena;
 
   return ERROR_SUCCESS;
@@ -1017,6 +1033,7 @@ int yr_arena_save_stream(
   ARENA_FILE_HEADER header;
 
   uint32_t end_marker = 0xFFFFFFFF;
+  uint32_t file_hash;
   uint8_t** reloc_address;
   uint8_t* reloc_target;
 
@@ -1058,6 +1075,9 @@ int yr_arena_save_stream(
   yr_stream_write(&header, sizeof(header), 1, stream);
   yr_stream_write(page->address, header.size, 1, stream);
 
+  file_hash = yr_hash(0, &header, sizeof(header));
+  file_hash = yr_hash(file_hash, page->address, page->used);
+
   reloc = page->reloc_list_head;
 
   // Convert offsets back to pointers.
@@ -1077,6 +1097,7 @@ int yr_arena_save_stream(
   }
 
   yr_stream_write(&end_marker, sizeof(end_marker), 1, stream);
+  yr_stream_write(&file_hash, sizeof(file_hash), 1, stream);
 
   return ERROR_SUCCESS;
 }

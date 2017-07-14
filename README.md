@@ -1,6 +1,8 @@
 [![Join the chat at https://gitter.im/VirusTotal/yara](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/VirusTotal/yara?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 [![Travis build status](https://travis-ci.org/VirusTotal/yara.svg)](https://travis-ci.org/VirusTotal/yara)
 [![AppVeyor build status](https://ci.appveyor.com/api/projects/status/7glqg19w4oolm7pr?svg=true)](https://ci.appveyor.com/project/plusvic/yara)
+[![Coverity status](https://scan.coverity.com/projects/9057/badge.svg?flat=1)](https://scan.coverity.com/projects/plusvic-yara)
+
 
 
 ## YARA in a nutshell
@@ -16,7 +18,7 @@ rule silent_banker : banker
 {
     meta:
         description = "This is just an example"
-        thread_level = 3
+        threat_level = 3
         in_the_wild = true
 
     strings:
@@ -33,7 +35,7 @@ The above rule is telling YARA that any file containing one of the three strings
 must be reported as *silent_banker*. This is just a simple example, more
 complex and powerful rules can be created by using wild-cards, case-insensitive
 strings, regular expressions, special operators and many other features that
-you'll find explained in [YARA's documentation](http://yara.readthedocs.org/).
+you'll find explained in [YARA's documentation](https://yara.readthedocs.org/).
 
 YARA is multi-platform, running on Windows, Linux and Mac OS X, and can be used
 through its command-line interface or from your own Python scripts with the
@@ -51,6 +53,7 @@ helpful extension to YARA developed and open-sourced by Bayshore Networks.
 * [Bayshore Networks, Inc.](http://www.bayshorenetworks.com)
 * [Blue Coat](http://www.bluecoat.com/products/malware-analysis-appliance)
 * [Blueliv](http://www.blueliv.com)
+* [Conix](http://www.conix.fr)
 * [CrowdStrike FMS](https://github.com/CrowdStrike/CrowdFMS)
 * [Cuckoo Sandbox](https://github.com/cuckoosandbox/cuckoo)
 * [ESET](https://www.eset.com)
@@ -82,12 +85,14 @@ helpful extension to YARA developed and open-sourced by Bayshore Networks.
 * [stoQ](http://stoq.punchcyber.com)
 * [Symantec](http://www.symantec.com)
 * [Tanium](http://www.tanium.com/)
+* [Tenable Network Security](https://www.tenable.com/)
 * [The DigiTrust Group](http://www.digitrustgroup.com/)
-* [ThreatConnect](http://www.threatconnect.com)
+* [ThreatConnect](https://www.threatconnect.com/)
 * [ThreatStream, Inc.](http://threatstream.com)
 * [Thug](https://github.com/buffer/thug)
 * [Trend Micro](http://www.trendmicro.com)
 * [VirusTotal Intelligence](https://www.virustotal.com/intelligence/)
+* [VMRay](https://www.vmray.com/)
 * [We Watch Your Website](http://www.wewatchyourwebsite.com/)
 * [Websense](http://www.websense.com)
 * [x64dbg](http://x64dbg.com)

@@ -108,7 +108,7 @@ define_function(network_dns_lookup)
 
 uint64_t http_request(
     YR_OBJECT* network_obj,
-    RE_CODE uri_regexp,
+    RE* uri_regexp,
     int methods)
 {
   json_t* network_json = (json_t*) network_obj->data;
@@ -299,7 +299,11 @@ int module_load(
   json = json_loadb(
       (const char*) module_data,
       module_data_size,
+      #if JANSSON_VERSION_HEX >= 0x020600
+      JSON_ALLOW_NUL,
+      #else
       0,
+      #endif
       &json_error);
 
   if (json == NULL)

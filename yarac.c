@@ -47,7 +47,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <yara.h>
 
 #include "args.h"
-#include "config.h"
+
 
 #ifndef MAX_PATH
 #define MAX_PATH 256
@@ -64,11 +64,12 @@ typedef struct COMPILER_RESULTS
 } COMPILER_RESULTS;
 
 
-char* ext_vars[MAX_ARGS_EXT_VAR + 1];
-int ignore_warnings = FALSE;
-int show_version = FALSE;
-int show_help = FALSE;
-int fail_on_warnings = FALSE;
+static char* ext_vars[MAX_ARGS_EXT_VAR + 1];
+static int ignore_warnings = FALSE;
+static int show_version = FALSE;
+static int show_help = FALSE;
+static int fail_on_warnings = FALSE;
+static int max_strings_per_rule = DEFAULT_MAX_STRINGS_PER_RULE;
 
 
 #define USAGE_STRING \
@@ -84,6 +85,9 @@ args_option_t options[] =
 
   OPT_BOOLEAN(0, "fail-on-warnings", &fail_on_warnings,
       "fail on warnings"),
+
+  OPT_INTEGER(0, "max-strings-per-rule", &max_strings_per_rule,
+      "set maximum number of strings per rule (default=10000)", "NUMBER"),
 
   OPT_BOOLEAN('v', "version", &show_version,
       "show version information"),
@@ -197,7 +201,7 @@ int main(
 
   if (show_version)
   {
-    printf("%s\n", PACKAGE_STRING);
+    printf("%s\n", YR_VERSION);
     return EXIT_SUCCESS;
   }
 
@@ -206,7 +210,7 @@ int main(
     printf("%s\n\n", USAGE_STRING);
 
     args_print_usage(options, 35);
-    printf("\nSend bug reports and suggestions to: %s.\n", PACKAGE_BUGREPORT);
+    printf("\nSend bug reports and suggestions to: vmalvarez@virustotal.com\n");
 
     return EXIT_SUCCESS;
   }
@@ -234,6 +238,7 @@ int main(
   cr.errors = 0;
   cr.warnings = 0;
 
+  yr_set_configuration(YR_CONFIG_MAX_STRINGS_PER_RULE, &max_strings_per_rule);
   yr_compiler_set_callback(compiler, report_error, &cr);
 
   for (int i = 0; i < argc - 1; i++)

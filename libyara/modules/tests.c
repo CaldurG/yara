@@ -82,6 +82,29 @@ define_function(empty)
 }
 
 
+define_function(match)
+{
+  return_integer(yr_re_match(regexp_argument(1), string_argument(2)));
+}
+
+
+define_function(foobar)
+{
+  int64_t arg = integer_argument(1);
+
+  switch (arg)
+  {
+    case 1:
+      return_string("foo");
+      break;
+    case 2:
+      return_string("bar");
+      break;
+  }
+
+  return_string("oops")
+}
+
 begin_declarations;
 
   begin_struct("constants");
@@ -112,12 +135,14 @@ begin_declarations;
     declare_string("s");
   end_struct_dictionary("struct_dict");
 
+  declare_function("match", "rs", "i", match);
   declare_function("isum", "ii", "i", isum_2);
   declare_function("isum", "iii", "i", isum_3);
   declare_function("fsum", "ff", "f", fsum_2);
   declare_function("fsum", "fff", "f", fsum_3);
   declare_function("length", "s", "i", length);
   declare_function("empty", "", "s", empty);
+  declare_function("foobar", "i", "s", foobar);
 
 end_declarations;
 
@@ -151,6 +176,7 @@ int module_load(
   set_integer(0, module_object, "integer_array[%i]", 0);
   set_integer(1, module_object, "integer_array[%i]", 1);
   set_integer(2, module_object, "integer_array[%i]", 2);
+  set_integer(256, module_object, "integer_array[%i]", 256);
 
   set_string("foo", module_object, "string_array[%i]", 0);
   set_string("bar", module_object, "string_array[%i]", 1);

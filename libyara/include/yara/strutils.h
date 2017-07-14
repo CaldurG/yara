@@ -35,8 +35,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <yara/integers.h>
 
-#include "config.h"
-
 // Cygwin already has these functions.
 #if defined(_WIN32) && !defined(__CYGWIN__)
 #if defined(_MSC_VER) && _MSC_VER < 1900
@@ -49,6 +47,10 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 uint64_t xtoi(
     const char* hexstr);
+
+
+uint64_t otoi(
+    const char* octstr);
 
 
 #if !HAVE_STRLCPY && !defined(strlcpy)

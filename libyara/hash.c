@@ -27,6 +27,7 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+#include <assert.h>
 #include <string.h>
 
 #include <yara/integers.h>
@@ -34,9 +35,15 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <yara/mem.h>
 #include <yara/error.h>
 
-#define ROTATE_INT32(x, shift) \
-    ((x << (shift % 32)) | (x >> (32 - (shift % 32))))
+// Constant-time left rotate that does not invoke undefined behavior.
+// http://blog.regehr.org/archives/1063
+uint32_t rotl32(uint32_t x, uint32_t shift) {
+  assert(shift < 32);
+  return (x << shift) | (x >> (-shift & 31));
+}
 
+#define ROTATE_INT32(x, shift) \
+    rotl32(x, shift % 32)
 
 uint32_t byte_to_int32[]  =
 {
@@ -80,7 +87,7 @@ uint32_t byte_to_int32[]  =
 };
 
 
-uint32_t hash(
+uint32_t yr_hash(
     uint32_t seed,
     const void* buffer,
     size_t len)
@@ -89,6 +96,8 @@ uint32_t hash(
 
   uint32_t result = seed;
   size_t i;
+
+  assert(len > 0);
 
   for (i = len - 1; i > 0; i--)
   {
@@ -180,10 +189,10 @@ YR_API void* yr_hash_table_lookup_raw_key(
   YR_HASH_TABLE_ENTRY* entry;
   uint32_t bucket_index;
 
-  bucket_index = hash(0, key, key_length);
+  bucket_index = yr_hash(0, key, key_length);
 
   if (ns != NULL)
-    bucket_index = hash(bucket_index, (uint8_t*) ns, strlen(ns));
+    bucket_index = yr_hash(bucket_index, (uint8_t*) ns, strlen(ns));
 
   bucket_index = bucket_index % table->size;
   entry = table->buckets[bucket_index];
@@ -253,10 +262,10 @@ YR_API int yr_hash_table_add_raw_key(
 
   memcpy(entry->key, key, key_length);
 
-  bucket_index = hash(0, key, key_length);
+  bucket_index = yr_hash(0, key, key_length);
 
   if (ns != NULL)
-    bucket_index = hash(bucket_index, (uint8_t*) ns, strlen(ns));
+    bucket_index = yr_hash(bucket_index, (uint8_t*) ns, strlen(ns));
 
   bucket_index = bucket_index % table->size;
 
