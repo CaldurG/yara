@@ -103,12 +103,8 @@ extern int yara_yydebug;
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 typedef union YYSTYPE
 {
-<<<<<<< HEAD
 /* Line 2058 of yacc.c  */
 #line 205 "grammar.y"
-=======
-#line 204 "grammar.y" /* yacc.c:1915  */
->>>>>>> origin/master
 
   EXPRESSION      expression;
   SIZED_STRING*   sized_string;
@@ -119,11 +115,6 @@ typedef union YYSTYPE
   YR_META*        meta;
   YR_RULE*        rule;
 
-<<<<<<< HEAD
-=======
-#line 167 "grammar.h" /* yacc.c:1915  */
-};
->>>>>>> origin/master
 
 /* Line 2058 of yacc.c  */
 #line 121 "grammar.h"
