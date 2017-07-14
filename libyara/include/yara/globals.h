@@ -32,5 +32,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 extern char lowercase[256];
 extern char altercase[256];
+extern char leetcase[256];
 
 #endif

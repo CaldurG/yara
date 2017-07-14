@@ -87,6 +87,7 @@ will end up using the "Look" atom alone, but in /a(bcd|efg)h/ atoms "bcd" and
 #include <yara/mem.h>
 #include <yara/error.h>
 #include <yara/types.h>
+#include <yara/globals.h>
 
 
 #define YR_MAX_ATOM_QUALITY   100000
@@ -572,39 +573,11 @@ int _yr_atoms_case_insensitive(
   return ERROR_SUCCESS;
 }
 
-inline char leet_swap(char c) {
-	switch (c) {
-	case 'a':
-	case 'A':
-		return '4';
-	case 'e':
-	case 'E':
-		return '3';
-	case 'g':
-	case 'G':
-		return '6';
-	case 'i':
-	case 'I':
-		return '1';
-	case 'o':
-	case 'O':
-		return '0';
-	case 's':
-	case 'S':
-		return '5';
-	case 't':
-	case 'T':
-		return '7';
-	default:
-		return c;
-	}
-}
-
 //
-// _yr_atoms_case_combinations
+// _yr_atoms_leet_combinations
 //
-// Returns all combinations of lower and upper cases for a given atom. For
-// atom "abc" the output would be "abc" "abC" "aBC" and so on. Resulting
+// Returns all combinations of leet replacements for a given atom. For
+// atom "mit" the output would be "m17" "mi7" "m1t". Resulting
 // atoms are written into the output buffer in this format:
 //
 //  [size 1] [backtrack 1] [atom 1]  ... [size N] [backtrack N] [atom N] [0]
@@ -645,7 +618,7 @@ uint8_t* _yr_atoms_leet_combinations(
 		output_buffer += atom_length;
 
 		// Swap characters for leet
-		new_atom[atom_offset] = leet_swap(c);
+		new_atom[atom_offset] = leetcase[c];
 
 		if (atom_offset + 1 < atom_length)
 			output_buffer = _yr_atoms_leet_combinations(
@@ -665,7 +638,7 @@ uint8_t* _yr_atoms_leet_combinations(
 // _yr_atoms_leet
 //
 // For a given list of atoms returns another list of atoms
-// with every case combination.
+// with every leet combination.
 //
 
 int _yr_atoms_leet(

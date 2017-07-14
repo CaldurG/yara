@@ -97,6 +97,94 @@ int _yr_scan_icompare(
   return (int) ((i == string_length) ? i : 0);
 }
 
+int _yr_scan_lcompare(
+	uint8_t* data,
+	size_t data_size,
+	uint8_t* string,
+	size_t string_length)
+{
+	uint8_t* s1 = data;
+	uint8_t* s2 = string;
+
+	size_t i = 0;
+
+	if (data_size < string_length)
+		return 0;
+
+	while (i < string_length && leetcase[*s1++] == leetcase[*s2++])
+		i++;
+
+	return (int)((i == string_length) ? i : 0);
+}
+
+int _yr_scan_licompare(
+	uint8_t* data,
+	size_t data_size,
+	uint8_t* string,
+	size_t string_length)
+{
+	uint8_t* s1 = data;
+	uint8_t* s2 = string;
+
+	size_t i = 0;
+
+	if (data_size < string_length)
+		return 0;
+
+	while (i < string_length && lowercase[leetcase[*s1++]] == lowercase[leetcase[*s2++]])
+		i++;
+
+	return (int)((i == string_length) ? i : 0);
+}
+
+int _yr_scan_lwicompare(
+	uint8_t* data,
+	size_t data_size,
+	uint8_t* string,
+	size_t string_length)
+{
+	uint8_t* s1 = data;
+	uint8_t* s2 = string;
+
+	size_t i = 0;
+
+	if (data_size < string_length * 2)
+		return 0;
+
+	while (i < string_length && lowercase[leetcase[*s1]] == lowercase[leetcase[*s2]])
+	{
+		s1 += 2;
+		s2++;
+		i++;
+	}
+
+	return (int)((i == string_length) ? i * 2 : 0);
+}
+
+int _yr_scan_lwcompare(
+	uint8_t* data,
+	size_t data_size,
+	uint8_t* string,
+	size_t string_length)
+{
+	uint8_t* s1 = data;
+	uint8_t* s2 = string;
+
+	size_t i = 0;
+
+	if (data_size < string_length * 2)
+		return 0;
+
+	while (i < string_length && leetcase[*s1] == leetcase[*s2])
+	{
+		s1 += 2;
+		s2++;
+		i++;
+	}
+
+	return (int)((i == string_length) ? i * 2 : 0);
+}
+
 
 int _yr_scan_wcompare(
     uint8_t* data,
@@ -896,6 +984,24 @@ int _yr_scan_verify_literal_match(
           string->length);
     }
 
+	if (STRING_IS_LEET(string) && STRING_IS_WIDE(string) && forward_matches == 0)
+	{
+		forward_matches = _yr_scan_lwicompare(
+			data + offset,
+			data_size - offset,
+			string->string,
+			string->length);
+	}
+
+	if (STRING_IS_LEET(string) && forward_matches == 0)
+	{
+		forward_matches = _yr_scan_licompare(
+			data + offset,
+			data_size - offset,
+			string->string,
+			string->length);
+	}
+
     if (STRING_IS_WIDE(string) && forward_matches == 0)
     {
       forward_matches = _yr_scan_wicompare(
@@ -903,7 +1009,7 @@ int _yr_scan_verify_literal_match(
           data_size - offset,
           string->string,
           string->length);
-    }
+    }	
   }
   else
   {
@@ -915,6 +1021,24 @@ int _yr_scan_verify_literal_match(
           string->string,
           string->length);
     }
+
+	if (STRING_IS_WIDE(string) && STRING_IS_LEET(string) && forward_matches == 0)
+	{
+		forward_matches = _yr_scan_lwcompare(
+			data + offset,
+			data_size - offset,
+			string->string,
+			string->length);
+	}
+
+	if (STRING_IS_LEET(string) && forward_matches == 0)
+	{
+		forward_matches = _yr_scan_lcompare(
+			data + offset,
+			data_size - offset,
+			string->string,
+			string->length);
+	}
 
     if (STRING_IS_WIDE(string) && forward_matches == 0)
     {
