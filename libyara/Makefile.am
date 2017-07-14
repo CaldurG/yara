@@ -6,6 +6,7 @@ MODULES += modules/math.c
 
 if CUCKOO_MODULE
 MODULES += modules/cuckoo.c
+MODULES += modules/json.c
 endif
 
 if MAGIC_MODULE
