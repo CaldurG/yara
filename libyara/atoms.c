@@ -618,7 +618,7 @@ uint8_t* _yr_atoms_leet_combinations(
 		output_buffer += atom_length;
 
 		// Swap characters for leet
-		new_atom[atom_offset] = leetcase[c];
+		new_atom[atom_offset] = yr_leetcase[c];
 
 		if (atom_offset + 1 < atom_length)
 			output_buffer = _yr_atoms_leet_combinations(

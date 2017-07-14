@@ -111,7 +111,7 @@ int _yr_scan_lcompare(
 	if (data_size < string_length)
 		return 0;
 
-	while (i < string_length && leetcase[*s1++] == leetcase[*s2++])
+	while (i < string_length && yr_leetcase[*s1++] == yr_leetcase[*s2++])
 		i++;
 
 	return (int)((i == string_length) ? i : 0);
@@ -131,7 +131,7 @@ int _yr_scan_licompare(
 	if (data_size < string_length)
 		return 0;
 
-	while (i < string_length && lowercase[leetcase[*s1++]] == lowercase[leetcase[*s2++]])
+	while (i < string_length && yr_lowercase[yr_leetcase[*s1++]] == yr_lowercase[yr_leetcase[*s2++]])
 		i++;
 
 	return (int)((i == string_length) ? i : 0);
@@ -151,7 +151,7 @@ int _yr_scan_lwicompare(
 	if (data_size < string_length * 2)
 		return 0;
 
-	while (i < string_length && lowercase[leetcase[*s1]] == lowercase[leetcase[*s2]])
+	while (i < string_length && yr_lowercase[yr_leetcase[*s1]] == yr_lowercase[yr_leetcase[*s2]])
 	{
 		s1 += 2;
 		s2++;
@@ -175,7 +175,7 @@ int _yr_scan_lwcompare(
 	if (data_size < string_length * 2)
 		return 0;
 
-	while (i < string_length && leetcase[*s1] == leetcase[*s2])
+	while (i < string_length && yr_leetcase[*s1] == yr_leetcase[*s2])
 	{
 		s1 += 2;
 		s2++;
