@@ -1270,7 +1270,8 @@ char* read_line()
 		if (c == '\n')
 			break;
 
-		*p = (char)c;
+		if (c != '\r')
+			*p = (char)c;
 	}
 	
 	return line;
@@ -1323,7 +1324,7 @@ int read_variables(MESSAGE *msg)
 
 		ok();
 
-		if (*line == '\0')
+		if ((*line == '\0') || (*line == '\r'))
 		{
 			free(line);
 			break;
