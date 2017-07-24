@@ -133,6 +133,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 %token _NOCASE_
 %token _LEET_
 %token _FULLWORD_
+%token _LEET_
 %token _AT_
 %token _FILESIZE_
 %token _ENTRYPOINT_

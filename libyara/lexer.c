@@ -856,10 +856,13 @@ with noyywrap then we can remove this pragma.
 #define include 3
 #define comment 4
 
-/*windows compatibility case*/
-#include <io.h>
-#define isatty _isatty
-#define fileno _fileno
+#ifndef YY_NO_UNISTD_H
+/* Special case for "unistd.h", since it is non-ANSI. We include it way
+ * down here because we want the user's section 1 to have been scanned first.
+ * The user has a chance to override it with an option.
+ */
+#include <unistd.h>
+#endif
     
 #ifndef YY_EXTRA_TYPE
 #define YY_EXTRA_TYPE void *
@@ -1124,7 +1127,7 @@ YY_DECL
 #line 130 "lexer.l"
 
 
-#line 1127 "lexer.c"
+#line 1130 "lexer.c"
 
 	while ( /*CONSTCOND*/1 )		/* loops until end-of-file is reached */
 		{
@@ -1969,7 +1972,7 @@ YY_RULE_SETUP
 #line 665 "lexer.l"
 ECHO;
 	YY_BREAK
-#line 1972 "lexer.c"
+#line 1975 "lexer.c"
 
 	case YY_END_OF_BUFFER:
 		{
