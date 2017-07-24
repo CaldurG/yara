@@ -56,8 +56,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
-#include <fcntl.h>
 #include <io.h>
+#include <fcntl.h>
 
 #include <yara.h>
 
@@ -139,29 +139,30 @@ typedef struct _MESSAGE
 } MESSAGE;
 
 
-char* tags[MAX_ARGS_TAG + 1];
-char* identifiers[MAX_ARGS_IDENTIFIER + 1];
-char* ext_vars[MAX_ARGS_EXT_VAR + 1];
-char* modules_data[MAX_ARGS_EXT_VAR + 1];
+static char* tags[MAX_ARGS_TAG + 1];
+static char* identifiers[MAX_ARGS_IDENTIFIER + 1];
+static char* ext_vars[MAX_ARGS_EXT_VAR + 1];
+static char* modules_data[MAX_ARGS_EXT_VAR + 1];
 
-int show_module_data = FALSE;
-int show_tags = FALSE;
-int show_specified_tags = FALSE;
-int show_specified_rules = FALSE;
-int show_strings = FALSE;
-int show_meta = FALSE;
-int show_namespace = FALSE;
-int show_version = FALSE;
-int show_help = FALSE;
-int ignore_warnings = FALSE;
-int fast_scan = FALSE;
-int negate = FALSE;
-int count = 0;
-int limit = 0;
-int timeout = 1000000;
-int stack_size = DEFAULT_STACK_SIZE;
-int fail_on_warnings = FALSE;
-int show_str_len = FALSE;
+static int recursive_search = FALSE;
+static int show_module_data = FALSE;
+static int show_tags = FALSE;
+static int show_strings = FALSE;
+static int show_string_length = FALSE;
+static int show_meta = FALSE;
+static int show_namespace = FALSE;
+static int show_version = FALSE;
+static int show_help = FALSE;
+static int ignore_warnings = FALSE;
+static int fast_scan = FALSE;
+static int negate = FALSE;
+static int count = 0;
+static int limit = 0;
+static int timeout = 1000000;
+static int stack_size = DEFAULT_STACK_SIZE;
+static int threads = MAX_THREADS;
+static int fail_on_warnings = FALSE;
+static int max_strings_per_rule = DEFAULT_MAX_STRINGS_PER_RULE;
 
 
 #define USAGE_STRING \
@@ -191,8 +192,14 @@ args_option_t options[] =
 	OPT_BOOLEAN('s', "print-strings", &show_strings,
 	"print matching strings"),
 
+	OPT_BOOLEAN('L', "print-string-length", &show_string_length,
+	"print length of matched strings"),
+
 	OPT_BOOLEAN('e', "print-namespace", &show_namespace,
 	"print rules' namespace"),
+
+	OPT_INTEGER('p', "threads", &threads,
+	"use the specified NUMBER of threads to scan a directory", "NUMBER"),
 	
 	OPT_INTEGER('l', "max-rules", &limit,
 	"abort scanning after matching a NUMBER of rules", "NUMBER"),
@@ -208,6 +215,12 @@ args_option_t options[] =
 
 	OPT_INTEGER('k', "stack-size", &stack_size,
 	"set maximum stack size (default=16384)", "SLOTS"),
+
+	OPT_INTEGER(0, "max-strings-per-rule", &max_strings_per_rule,
+	"set maximum number of strings per rule (default=10000)", "NUMBER"),
+
+	OPT_BOOLEAN('r', "recursive", &recursive_search,
+	"recursively search directories"),
 	
 	OPT_BOOLEAN('f', "fast-scan", &fast_scan,
 	"fast matching mode"),
@@ -223,9 +236,6 @@ args_option_t options[] =
 
 	OPT_BOOLEAN('h', "help", &show_help,
 	"show this help and exit"),
-
-	OPT_BOOLEAN('L', "print-string-length", &show_str_len,
-	"print length of matched strings"),
 
 	OPT_END()
 };
@@ -504,12 +514,9 @@ void print_hex_string(
 	int length)
 {
 	for (int i = 0; i < min(32, length); i++)
-		printf("%02X ", (uint8_t)data[i]);
+		printf("%s%02X", (i == 0 ? "" : " "), (uint8_t)data[i]);
 
-	if (length > 32)
-		printf("...");
-
-	printf("\n");
+	puts(length > 32 ? " ..." : "");
 }
 
 
@@ -683,7 +690,7 @@ int handle_message(
 
 		// Show matched strings.
 
-		if (show_strings || show_str_len)
+		if (show_strings || show_string_length)
 		{
 			YR_STRING* string;
 
@@ -693,20 +700,29 @@ int handle_message(
 
 				yr_string_matches_foreach(string, match)
 				{
-					if (show_str_len)
-						printf("0x%" PRIx64 ":%d:%s", match->base + match->offset, match->data_length, string->identifier);
+					if (show_string_length)
+						printf("0x%" PRIx64 ":%d:%s",
+							match->base + match->offset,
+							match->data_length,
+							string->identifier);
 					else
-						printf("0x%" PRIx64 ":%s", match->base + match->offset, string->identifier);
+						printf("0x%" PRIx64 ":%s",
+							match->base + match->offset,
+							string->identifier);
 
-					if (show_strings) {
+					if (show_strings)
+					{
 						printf(": ");
+						
 						if (STRING_IS_HEX(string))
 							print_hex_string(match->data, match->data_length);
 						else
 							print_string(match->data, match->data_length);
 					}
 					else
+					{
 						printf("\n");
+					}
 				}
 			}
 		}
@@ -1027,7 +1043,7 @@ int process_arguments(int argc, const char** argv) {
 
 	if (show_version)
 	{
-		printf("%s\n", PACKAGE_STRING);
+		printf("%s\n", YR_VERSION);
 		return EXIT_SUCCESS;
 	}
 
@@ -1037,12 +1053,18 @@ int process_arguments(int argc, const char** argv) {
 			"YARA %s, the pattern matching swiss army knife.\n"
 			"%s\n\n"
 			"Mandatory arguments to long options are mandatory for "
-			"short options too.\n\n", PACKAGE_VERSION, USAGE_STRING);
+			"short options too.\n\n", YR_VERSION, USAGE_STRING);
 
-		args_print_usage(options, 35);
-		printf("\nSend bug reports and suggestions to: %s.\n", PACKAGE_BUGREPORT);
+		args_print_usage(options, 40);
+		printf("\nSend bug reports and suggestions to: vmalvarez@virustotal.com.\n");
 
 		return EXIT_SUCCESS;
+	}
+
+	if (threads > MAX_THREADS)
+	{
+		fprintf(stderr, "maximum number of threads is %d\n", MAX_THREADS);
+		return EXIT_FAILURE;
 	}
 
 	if (argc != 1)
@@ -1406,13 +1428,8 @@ int main(int argc, const char** argv)
 		exit_with_code(EXIT_FAILURE);
 	}
 
-	if (stack_size != DEFAULT_STACK_SIZE)
-	{
-		// If the user chose a different stack size than default,
-		// modify the yara config here.
-
-		yr_set_configuration(YR_CONFIG_STACK_SIZE, &stack_size);
-	}
+	yr_set_configuration(YR_CONFIG_STACK_SIZE, &stack_size);
+	yr_set_configuration(YR_CONFIG_MAX_STRINGS_PER_RULE, &max_strings_per_rule);
 
 	result = load_rules(argv[0], &rules);
 	if (result != ERROR_SUCCESS)
