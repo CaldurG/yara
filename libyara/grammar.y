@@ -34,8 +34,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdio.h>
 #include <string.h>
 #include <limits.h>
+#include <stdlib.h>
 #include <stddef.h>
-
 
 #include <yara/integers.h>
 #include <yara/utils.h>
@@ -49,6 +49,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <yara/lexer.h>
 #include <yara/parser.h>
 
+#if defined(_MSC_VER)
+#define llabs _abs64
+#endif
 
 #define YYERROR_VERBOSE
 
@@ -58,7 +61,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define INTEGER_SET_ENUMERATION   1
 #define INTEGER_SET_RANGE         2
 
-#define ERROR_IF(x) \
+#define fail_if(x) \
     if (x) \
     { \
       yyerror(yyscanner, compiler, NULL); \
@@ -66,7 +69,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     } \
 
 
-#define CHECK_TYPE(expression, expected_type, op) \
+#define check_type_with_cleanup(expression, expected_type, op, cleanup) \
     if (((expression.type) & (expected_type)) == 0) \
     { \
       switch(expression.type) \
@@ -88,10 +91,16 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
               compiler, "wrong type \"boolean\" for " op " operator"); \
           break; \
       } \
+      cleanup; \
       compiler->last_result = ERROR_WRONG_TYPE; \
       yyerror(yyscanner, compiler, NULL); \
       YYERROR; \
     }
+
+
+#define check_type(expression, expected_type, op) \
+    check_type_with_cleanup(expression, expected_type, op, )
+
 %}
 
 
@@ -102,7 +111,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 // %debug
 
-%name-prefix="yara_yy"
+%name-prefix "yara_yy"
 %pure-parser
 %parse-param {void *yyscanner}
 %parse-param {YR_COMPILER* compiler}
@@ -131,7 +140,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 %token _ASCII_
 %token _WIDE_
 %token _NOCASE_
-%token _LEET_
 %token _FULLWORD_
 %token _LEET_
 %token _AT_
@@ -183,7 +191,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 %type <integer> rule_modifier
 %type <integer> rule_modifiers
 
-
 %type <expression> primary_expression
 %type <expression> boolean_expression
 %type <expression> expression
@@ -193,15 +200,18 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 %type <c_string> arguments
 %type <c_string> arguments_list
 
-%destructor { yr_free($$); } _IDENTIFIER_
-%destructor { yr_free($$); } _STRING_COUNT_
-%destructor { yr_free($$); } _STRING_OFFSET_
-%destructor { yr_free($$); } _STRING_LENGTH_
-%destructor { yr_free($$); } _STRING_IDENTIFIER_
-%destructor { yr_free($$); } _STRING_IDENTIFIER_WITH_WILDCARD_
-%destructor { yr_free($$); } _TEXT_STRING_
-%destructor { yr_free($$); } _HEX_STRING_
-%destructor { yr_free($$); } _REGEXP_
+%destructor { yr_free($$); $$ = NULL; } _IDENTIFIER_
+%destructor { yr_free($$); $$ = NULL; } _STRING_COUNT_
+%destructor { yr_free($$); $$ = NULL; } _STRING_OFFSET_
+%destructor { yr_free($$); $$ = NULL; } _STRING_LENGTH_
+%destructor { yr_free($$); $$ = NULL; } _STRING_IDENTIFIER_
+%destructor { yr_free($$); $$ = NULL; } _STRING_IDENTIFIER_WITH_WILDCARD_
+%destructor { yr_free($$); $$ = NULL; } _TEXT_STRING_
+%destructor { yr_free($$); $$ = NULL; } _HEX_STRING_
+%destructor { yr_free($$); $$ = NULL; } _REGEXP_
+
+%destructor { yr_free($$); $$ = NULL; } arguments
+%destructor { yr_free($$); $$ = NULL; } arguments_list
 
 %union {
   EXPRESSION      expression;
@@ -234,7 +244,7 @@ import
 
         yr_free($2);
 
-        ERROR_IF(result != ERROR_SUCCESS);
+        fail_if(result != ERROR_SUCCESS);
       }
     ;
 
@@ -245,7 +255,7 @@ rule
         YR_RULE* rule = yr_parser_reduce_rule_declaration_phase_1(
             yyscanner, (int32_t) $1, $3);
 
-        ERROR_IF(rule == NULL);
+        fail_if(rule == NULL);
 
         $<rule>$ = rule;
       }
@@ -266,7 +276,7 @@ rule
 
         yr_free($3);
 
-        ERROR_IF(compiler->last_result != ERROR_SUCCESS);
+        fail_if(compiler->last_result != ERROR_SUCCESS);
       }
     ;
 
@@ -297,7 +307,7 @@ meta
 
         $$ = $3;
 
-        ERROR_IF(compiler->last_result != ERROR_SUCCESS);
+        fail_if(compiler->last_result != ERROR_SUCCESS);
       }
     ;
 
@@ -326,7 +336,7 @@ strings
             sizeof(YR_STRING),
             NULL);
 
-        ERROR_IF(compiler->last_result != ERROR_SUCCESS);
+        fail_if(compiler->last_result != ERROR_SUCCESS);
 
         $$ = $3;
       }
@@ -365,7 +375,7 @@ tags
         compiler->last_result = yr_arena_write_string(
             yyget_extra(yyscanner)->sz_arena, "", NULL);
 
-        ERROR_IF(compiler->last_result != ERROR_SUCCESS);
+        fail_if(compiler->last_result != ERROR_SUCCESS);
 
         $$ = $2;
       }
@@ -382,7 +392,7 @@ tag_list
 
         yr_free($1);
 
-        ERROR_IF(compiler->last_result != ERROR_SUCCESS);
+        fail_if(compiler->last_result != ERROR_SUCCESS);
 
         $$ = identifier;
       }
@@ -414,7 +424,7 @@ tag_list
 
         yr_free($2);
 
-        ERROR_IF(compiler->last_result != ERROR_SUCCESS);
+        fail_if(compiler->last_result != ERROR_SUCCESS);
 
         $$ = $1;
       }
@@ -443,7 +453,7 @@ meta_declaration
         yr_free($1);
         yr_free($3);
 
-        ERROR_IF($$ == NULL);
+        fail_if($$ == NULL);
       }
     | _IDENTIFIER_ '=' _NUMBER_
       {
@@ -456,7 +466,7 @@ meta_declaration
 
         yr_free($1);
 
-        ERROR_IF($$ == NULL);
+        fail_if($$ == NULL);
       }
     | _IDENTIFIER_ '=' '-' _NUMBER_
       {
@@ -469,7 +479,7 @@ meta_declaration
 
         yr_free($1);
 
-        ERROR_IF($$ == NULL);
+        fail_if($$ == NULL);
       }
     | _IDENTIFIER_ '=' _TRUE_
       {
@@ -482,7 +492,7 @@ meta_declaration
 
         yr_free($1);
 
-        ERROR_IF($$ == NULL);
+        fail_if($$ == NULL);
       }
     | _IDENTIFIER_ '=' _FALSE_
       {
@@ -495,7 +505,7 @@ meta_declaration
 
         yr_free($1);
 
-        ERROR_IF($$ == NULL);
+        fail_if($$ == NULL);
       }
     ;
 
@@ -519,7 +529,7 @@ string_declaration
         yr_free($1);
         yr_free($4);
 
-        ERROR_IF($$ == NULL);
+        fail_if($$ == NULL);
         compiler->current_line = 0;
       }
     | _STRING_IDENTIFIER_ '='
@@ -534,7 +544,7 @@ string_declaration
         yr_free($1);
         yr_free($4);
 
-        ERROR_IF($$ == NULL);
+        fail_if($$ == NULL);
 
         compiler->current_line = 0;
       }
@@ -546,7 +556,7 @@ string_declaration
         yr_free($1);
         yr_free($3);
 
-        ERROR_IF($$ == NULL);
+        fail_if($$ == NULL);
       }
     ;
 
@@ -650,7 +660,7 @@ identifier
 
         yr_free($1);
 
-        ERROR_IF(compiler->last_result != ERROR_SUCCESS);
+        fail_if(compiler->last_result != ERROR_SUCCESS);
       }
     | identifier '.' _IDENTIFIER_
       {
@@ -696,7 +706,7 @@ identifier
 
         yr_free($3);
 
-        ERROR_IF(compiler->last_result != ERROR_SUCCESS);
+        fail_if(compiler->last_result != ERROR_SUCCESS);
       }
     | identifier '[' primary_expression ']'
       {
@@ -713,7 +723,7 @@ identifier
             compiler->last_result = ERROR_WRONG_TYPE;
           }
 
-          ERROR_IF(compiler->last_result != ERROR_SUCCESS);
+          fail_if(compiler->last_result != ERROR_SUCCESS);
 
           compiler->last_result = yr_parser_emit(
               yyscanner, OP_INDEX_ARRAY, NULL);
@@ -734,7 +744,7 @@ identifier
             compiler->last_result = ERROR_WRONG_TYPE;
           }
 
-          ERROR_IF(compiler->last_result != ERROR_SUCCESS);
+          fail_if(compiler->last_result != ERROR_SUCCESS);
 
           compiler->last_result = yr_parser_emit(
               yyscanner, OP_LOOKUP_DICT, NULL);
@@ -753,7 +763,7 @@ identifier
           compiler->last_result = ERROR_NOT_INDEXABLE;
         }
 
-        ERROR_IF(compiler->last_result != ERROR_SUCCESS);
+        fail_if(compiler->last_result != ERROR_SUCCESS);
       }
 
     | identifier '(' arguments ')'
@@ -795,7 +805,7 @@ identifier
 
         yr_free($3);
 
-        ERROR_IF(compiler->last_result != ERROR_SUCCESS);
+        fail_if(compiler->last_result != ERROR_SUCCESS);
       }
     ;
 
@@ -831,7 +841,7 @@ arguments_list
             assert(FALSE);
         }
 
-        ERROR_IF($$ == NULL);
+        fail_if($$ == NULL);
       }
     | arguments_list ',' expression
       {
@@ -863,7 +873,7 @@ arguments_list
           }
         }
 
-        ERROR_IF(compiler->last_result != ERROR_SUCCESS);
+        fail_if(compiler->last_result != ERROR_SUCCESS);
 
         $$ = $1;
       }
@@ -905,7 +915,7 @@ regexp
               NULL,
               NULL);
 
-        ERROR_IF(compiler->last_result != ERROR_SUCCESS);
+        fail_if(compiler->last_result != ERROR_SUCCESS);
 
         $$.type = EXPRESSION_TYPE_REGEXP;
       }
@@ -927,7 +937,7 @@ boolean_expression
           compiler->last_result = yr_parser_emit(
               yyscanner, OP_STR_TO_BOOL, NULL);
 
-          ERROR_IF(compiler->last_result != ERROR_SUCCESS);
+          fail_if(compiler->last_result != ERROR_SUCCESS);
         }
 
         $$.type = EXPRESSION_TYPE_BOOLEAN;
@@ -940,7 +950,7 @@ expression
         compiler->last_result = yr_parser_emit_with_arg(
             yyscanner, OP_PUSH, 1, NULL, NULL);
 
-        ERROR_IF(compiler->last_result != ERROR_SUCCESS);
+        fail_if(compiler->last_result != ERROR_SUCCESS);
 
         $$.type = EXPRESSION_TYPE_BOOLEAN;
       }
@@ -949,14 +959,14 @@ expression
         compiler->last_result = yr_parser_emit_with_arg(
             yyscanner, OP_PUSH, 0, NULL, NULL);
 
-        ERROR_IF(compiler->last_result != ERROR_SUCCESS);
+        fail_if(compiler->last_result != ERROR_SUCCESS);
 
         $$.type = EXPRESSION_TYPE_BOOLEAN;
       }
     | primary_expression _MATCHES_ regexp
       {
-        CHECK_TYPE($1, EXPRESSION_TYPE_STRING, "matches");
-        CHECK_TYPE($3, EXPRESSION_TYPE_REGEXP, "matches");
+        check_type($1, EXPRESSION_TYPE_STRING, "matches");
+        check_type($3, EXPRESSION_TYPE_REGEXP, "matches");
 
         if (compiler->last_result == ERROR_SUCCESS)
           compiler->last_result = yr_parser_emit(
@@ -964,19 +974,19 @@ expression
               OP_MATCHES,
               NULL);
 
-        ERROR_IF(compiler->last_result != ERROR_SUCCESS);
+        fail_if(compiler->last_result != ERROR_SUCCESS);
 
         $$.type = EXPRESSION_TYPE_BOOLEAN;
       }
     | primary_expression _CONTAINS_ primary_expression
       {
-        CHECK_TYPE($1, EXPRESSION_TYPE_STRING, "contains");
-        CHECK_TYPE($3, EXPRESSION_TYPE_STRING, "contains");
+        check_type($1, EXPRESSION_TYPE_STRING, "contains");
+        check_type($3, EXPRESSION_TYPE_STRING, "contains");
 
         compiler->last_result = yr_parser_emit(
             yyscanner, OP_CONTAINS, NULL);
 
-        ERROR_IF(compiler->last_result != ERROR_SUCCESS);
+        fail_if(compiler->last_result != ERROR_SUCCESS);
 
         $$.type = EXPRESSION_TYPE_BOOLEAN;
       }
@@ -990,20 +1000,20 @@ expression
 
         yr_free($1);
 
-        ERROR_IF(result != ERROR_SUCCESS);
+        fail_if(result != ERROR_SUCCESS);
 
         $$.type = EXPRESSION_TYPE_BOOLEAN;
       }
     | _STRING_IDENTIFIER_ _AT_ primary_expression
       {
-        CHECK_TYPE($3, EXPRESSION_TYPE_INTEGER, "at");
+        check_type_with_cleanup($3, EXPRESSION_TYPE_INTEGER, "at", yr_free($1));
 
         compiler->last_result = yr_parser_reduce_string_identifier(
             yyscanner, $1, OP_FOUND_AT, $3.value.integer);
 
         yr_free($1);
 
-        ERROR_IF(compiler->last_result != ERROR_SUCCESS);
+        fail_if(compiler->last_result != ERROR_SUCCESS);
 
         $$.type = EXPRESSION_TYPE_BOOLEAN;
       }
@@ -1014,7 +1024,7 @@ expression
 
         yr_free($1);
 
-        ERROR_IF(compiler->last_result!= ERROR_SUCCESS);
+        fail_if(compiler->last_result!= ERROR_SUCCESS);
 
         $$.type = EXPRESSION_TYPE_BOOLEAN;
       }
@@ -1036,7 +1046,7 @@ expression
           compiler->last_result = \
               ERROR_LOOP_NESTING_LIMIT_EXCEEDED;
 
-        ERROR_IF(compiler->last_result != ERROR_SUCCESS);
+        fail_if(compiler->last_result != ERROR_SUCCESS);
 
         var_index = yr_parser_lookup_loop_variable(
             yyscanner, $3);
@@ -1050,13 +1060,13 @@ expression
               ERROR_DUPLICATED_LOOP_IDENTIFIER;
         }
 
-        ERROR_IF(compiler->last_result != ERROR_SUCCESS);
+        fail_if(compiler->last_result != ERROR_SUCCESS);
 
         // Push end-of-list marker
         compiler->last_result = yr_parser_emit_with_arg(
             yyscanner, OP_PUSH, UNDEFINED, NULL, NULL);
 
-        ERROR_IF(compiler->last_result != ERROR_SUCCESS);
+        fail_if(compiler->last_result != ERROR_SUCCESS);
       }
       integer_set ':'
       {
@@ -1185,7 +1195,7 @@ expression
           compiler->last_result = \
             ERROR_NESTED_FOR_OF_LOOP;
 
-        ERROR_IF(compiler->last_result != ERROR_SUCCESS);
+        fail_if(compiler->last_result != ERROR_SUCCESS);
 
         yr_parser_emit_with_arg(
             yyscanner, OP_CLEAR_M, mem_offset + 1, NULL, NULL);
@@ -1275,7 +1285,7 @@ expression
             NULL,
             &jmp_destination_addr);
 
-        ERROR_IF(compiler->last_result != ERROR_SUCCESS);
+        fail_if(compiler->last_result != ERROR_SUCCESS);
 
         // create a fixup entry for the jump and push it in the stack
         fixup = (YR_FIXUP*) yr_malloc(sizeof(YR_FIXUP));
@@ -1283,7 +1293,7 @@ expression
         if (fixup == NULL)
           compiler->last_error = ERROR_INSUFFICIENT_MEMORY;
 
-        ERROR_IF(compiler->last_result != ERROR_SUCCESS);
+        fail_if(compiler->last_result != ERROR_SUCCESS);
 
         fixup->address = jmp_destination_addr;
         fixup->next = compiler->fixup_stack_head;
@@ -1296,7 +1306,7 @@ expression
 
         compiler->last_result = yr_parser_emit(yyscanner, OP_AND, NULL);
 
-        ERROR_IF(compiler->last_result != ERROR_SUCCESS);
+        fail_if(compiler->last_result != ERROR_SUCCESS);
 
         // Generate a do-nothing instruction (NOP) in order to get its address
         // and use it as the destination for the OP_JFALSE. We can not simply
@@ -1307,7 +1317,7 @@ expression
 
         compiler->last_result = yr_parser_emit(yyscanner, OP_NOP, &nop_addr);
 
-        ERROR_IF(compiler->last_result != ERROR_SUCCESS);
+        fail_if(compiler->last_result != ERROR_SUCCESS);
 
         fixup = compiler->fixup_stack_head;
         *(void**)(fixup->address) = (void*) nop_addr;
@@ -1328,14 +1338,14 @@ expression
             NULL,
             &jmp_destination_addr);
 
-        ERROR_IF(compiler->last_result != ERROR_SUCCESS);
+        fail_if(compiler->last_result != ERROR_SUCCESS);
 
         fixup = (YR_FIXUP*) yr_malloc(sizeof(YR_FIXUP));
 
         if (fixup == NULL)
           compiler->last_error = ERROR_INSUFFICIENT_MEMORY;
 
-        ERROR_IF(compiler->last_result != ERROR_SUCCESS);
+        fail_if(compiler->last_result != ERROR_SUCCESS);
 
         fixup->address = jmp_destination_addr;
         fixup->next = compiler->fixup_stack_head;
@@ -1348,18 +1358,18 @@ expression
 
         compiler->last_result = yr_parser_emit(yyscanner, OP_OR, NULL);
 
-        ERROR_IF(compiler->last_result != ERROR_SUCCESS);
+        fail_if(compiler->last_result != ERROR_SUCCESS);
 
         // Generate a do-nothing instruction (NOP) in order to get its address
         // and use it as the destination for the OP_JFALSE. We can not simply
-        // use the address of the OP_AND instruction +1 because we can't be
+        // use the address of the OP_OR instruction +1 because we can't be
         // sure that the instruction following the OP_AND is going to be in
         // the same arena page. As we don't have a reliable way of getting the
         // address of the next instruction we generate the OP_NOP.
 
         compiler->last_result = yr_parser_emit(yyscanner, OP_NOP, &nop_addr);
 
-        ERROR_IF(compiler->last_result != ERROR_SUCCESS);
+        fail_if(compiler->last_result != ERROR_SUCCESS);
 
         fixup = compiler->fixup_stack_head;
         *(void**)(fixup->address) = (void*)(nop_addr);
@@ -1373,7 +1383,7 @@ expression
         compiler->last_result = yr_parser_reduce_operation(
             yyscanner, "<", $1, $3);
 
-        ERROR_IF(compiler->last_result != ERROR_SUCCESS);
+        fail_if(compiler->last_result != ERROR_SUCCESS);
 
         $$.type = EXPRESSION_TYPE_BOOLEAN;
       }
@@ -1382,7 +1392,7 @@ expression
         compiler->last_result = yr_parser_reduce_operation(
             yyscanner, ">", $1, $3);
 
-        ERROR_IF(compiler->last_result != ERROR_SUCCESS);
+        fail_if(compiler->last_result != ERROR_SUCCESS);
 
         $$.type = EXPRESSION_TYPE_BOOLEAN;
       }
@@ -1391,7 +1401,7 @@ expression
         compiler->last_result = yr_parser_reduce_operation(
             yyscanner, "<=", $1, $3);
 
-        ERROR_IF(compiler->last_result != ERROR_SUCCESS);
+        fail_if(compiler->last_result != ERROR_SUCCESS);
 
         $$.type = EXPRESSION_TYPE_BOOLEAN;
       }
@@ -1400,7 +1410,7 @@ expression
         compiler->last_result = yr_parser_reduce_operation(
             yyscanner, ">=", $1, $3);
 
-        ERROR_IF(compiler->last_result != ERROR_SUCCESS);
+        fail_if(compiler->last_result != ERROR_SUCCESS);
 
         $$.type = EXPRESSION_TYPE_BOOLEAN;
       }
@@ -1409,7 +1419,7 @@ expression
         compiler->last_result = yr_parser_reduce_operation(
             yyscanner, "==", $1, $3);
 
-        ERROR_IF(compiler->last_result != ERROR_SUCCESS);
+        fail_if(compiler->last_result != ERROR_SUCCESS);
 
         $$.type = EXPRESSION_TYPE_BOOLEAN;
       }
@@ -1418,7 +1428,7 @@ expression
         compiler->last_result = yr_parser_reduce_operation(
             yyscanner, "!=", $1, $3);
 
-        ERROR_IF(compiler->last_result != ERROR_SUCCESS);
+        fail_if(compiler->last_result != ERROR_SUCCESS);
 
         $$.type = EXPRESSION_TYPE_BOOLEAN;
       }
@@ -1456,7 +1466,7 @@ range
           compiler->last_result = ERROR_WRONG_TYPE;
         }
 
-        ERROR_IF(compiler->last_result != ERROR_SUCCESS);
+        fail_if(compiler->last_result != ERROR_SUCCESS);
       }
     ;
 
@@ -1472,7 +1482,7 @@ integer_enumeration
 
         }
 
-        ERROR_IF(compiler->last_result != ERROR_SUCCESS);
+        fail_if(compiler->last_result != ERROR_SUCCESS);
       }
     | integer_enumeration ',' primary_expression
       {
@@ -1483,7 +1493,7 @@ integer_enumeration
           compiler->last_result = ERROR_WRONG_TYPE;
         }
 
-        ERROR_IF(compiler->last_result != ERROR_SUCCESS);
+        fail_if(compiler->last_result != ERROR_SUCCESS);
       }
     ;
 
@@ -1500,7 +1510,7 @@ string_set
         yr_parser_emit_with_arg(yyscanner, OP_PUSH, UNDEFINED, NULL, NULL);
         yr_parser_emit_pushes_for_strings(yyscanner, "$*");
 
-        ERROR_IF(compiler->last_result != ERROR_SUCCESS);
+        fail_if(compiler->last_result != ERROR_SUCCESS);
       }
     ;
 
@@ -1517,14 +1527,14 @@ string_enumeration_item
         yr_parser_emit_pushes_for_strings(yyscanner, $1);
         yr_free($1);
 
-        ERROR_IF(compiler->last_result != ERROR_SUCCESS);
+        fail_if(compiler->last_result != ERROR_SUCCESS);
       }
     | _STRING_IDENTIFIER_WITH_WILDCARD_
       {
         yr_parser_emit_pushes_for_strings(yyscanner, $1);
         yr_free($1);
 
-        ERROR_IF(compiler->last_result != ERROR_SUCCESS);
+        fail_if(compiler->last_result != ERROR_SUCCESS);
       }
     ;
 
@@ -1552,7 +1562,7 @@ primary_expression
         compiler->last_result = yr_parser_emit(
             yyscanner, OP_FILESIZE, NULL);
 
-        ERROR_IF(compiler->last_result != ERROR_SUCCESS);
+        fail_if(compiler->last_result != ERROR_SUCCESS);
 
         $$.type = EXPRESSION_TYPE_INTEGER;
         $$.value.integer = UNDEFINED;
@@ -1566,14 +1576,14 @@ primary_expression
         compiler->last_result = yr_parser_emit(
             yyscanner, OP_ENTRYPOINT, NULL);
 
-        ERROR_IF(compiler->last_result != ERROR_SUCCESS);
+        fail_if(compiler->last_result != ERROR_SUCCESS);
 
         $$.type = EXPRESSION_TYPE_INTEGER;
         $$.value.integer = UNDEFINED;
       }
     | _INTEGER_FUNCTION_ '(' primary_expression ')'
       {
-        CHECK_TYPE($3, EXPRESSION_TYPE_INTEGER, "intXXXX or uintXXXX");
+        check_type($3, EXPRESSION_TYPE_INTEGER, "intXXXX or uintXXXX");
 
         // _INTEGER_FUNCTION_ could be any of int8, int16, int32, uint8,
         // uint32, etc. $1 contains an index that added to OP_READ_INT results
@@ -1582,7 +1592,7 @@ primary_expression
         compiler->last_result = yr_parser_emit(
             yyscanner, (uint8_t) (OP_READ_INT + $1), NULL);
 
-        ERROR_IF(compiler->last_result != ERROR_SUCCESS);
+        fail_if(compiler->last_result != ERROR_SUCCESS);
 
         $$.type = EXPRESSION_TYPE_INTEGER;
         $$.value.integer = UNDEFINED;
@@ -1592,7 +1602,7 @@ primary_expression
         compiler->last_result = yr_parser_emit_with_arg(
             yyscanner, OP_PUSH, $1, NULL, NULL);
 
-        ERROR_IF(compiler->last_result != ERROR_SUCCESS);
+        fail_if(compiler->last_result != ERROR_SUCCESS);
 
         $$.type = EXPRESSION_TYPE_INTEGER;
         $$.value.integer = $1;
@@ -1602,7 +1612,7 @@ primary_expression
         compiler->last_result = yr_parser_emit_with_arg_double(
             yyscanner, OP_PUSH, $1, NULL, NULL);
 
-        ERROR_IF(compiler->last_result != ERROR_SUCCESS);
+        fail_if(compiler->last_result != ERROR_SUCCESS);
 
         $$.type = EXPRESSION_TYPE_FLOAT;
       }
@@ -1626,7 +1636,7 @@ primary_expression
               NULL,
               NULL);
 
-        ERROR_IF(compiler->last_result != ERROR_SUCCESS);
+        fail_if(compiler->last_result != ERROR_SUCCESS);
 
         $$.type = EXPRESSION_TYPE_STRING;
         $$.value.sized_string = sized_string;
@@ -1638,7 +1648,7 @@ primary_expression
 
         yr_free($1);
 
-        ERROR_IF(compiler->last_result != ERROR_SUCCESS);
+        fail_if(compiler->last_result != ERROR_SUCCESS);
 
         $$.type = EXPRESSION_TYPE_INTEGER;
         $$.value.integer = UNDEFINED;
@@ -1650,7 +1660,7 @@ primary_expression
 
         yr_free($1);
 
-        ERROR_IF(compiler->last_result != ERROR_SUCCESS);
+        fail_if(compiler->last_result != ERROR_SUCCESS);
 
         $$.type = EXPRESSION_TYPE_INTEGER;
         $$.value.integer = UNDEFINED;
@@ -1666,7 +1676,7 @@ primary_expression
 
         yr_free($1);
 
-        ERROR_IF(compiler->last_result != ERROR_SUCCESS);
+        fail_if(compiler->last_result != ERROR_SUCCESS);
 
         $$.type = EXPRESSION_TYPE_INTEGER;
         $$.value.integer = UNDEFINED;
@@ -1678,7 +1688,7 @@ primary_expression
 
         yr_free($1);
 
-        ERROR_IF(compiler->last_result != ERROR_SUCCESS);
+        fail_if(compiler->last_result != ERROR_SUCCESS);
 
         $$.type = EXPRESSION_TYPE_INTEGER;
         $$.value.integer = UNDEFINED;
@@ -1694,7 +1704,7 @@ primary_expression
 
         yr_free($1);
 
-        ERROR_IF(compiler->last_result != ERROR_SUCCESS);
+        fail_if(compiler->last_result != ERROR_SUCCESS);
 
         $$.type = EXPRESSION_TYPE_INTEGER;
         $$.value.integer = UNDEFINED;
@@ -1742,11 +1752,11 @@ primary_expression
           assert(FALSE);
         }
 
-        ERROR_IF(compiler->last_result != ERROR_SUCCESS);
+        fail_if(compiler->last_result != ERROR_SUCCESS);
       }
     | '-' primary_expression %prec UNARY_MINUS
       {
-        CHECK_TYPE($2, EXPRESSION_TYPE_INTEGER | EXPRESSION_TYPE_FLOAT, "-");
+        check_type($2, EXPRESSION_TYPE_INTEGER | EXPRESSION_TYPE_FLOAT, "-");
 
         if ($2.type == EXPRESSION_TYPE_INTEGER)
         {
@@ -1761,68 +1771,116 @@ primary_expression
           compiler->last_result = yr_parser_emit(yyscanner, OP_DBL_MINUS, NULL);
         }
 
-        ERROR_IF(compiler->last_result != ERROR_SUCCESS);
+        fail_if(compiler->last_result != ERROR_SUCCESS);
       }
     | primary_expression '+' primary_expression
       {
         compiler->last_result = yr_parser_reduce_operation(
             yyscanner, "+", $1, $3);
 
-        ERROR_IF(compiler->last_result != ERROR_SUCCESS);
-
         if ($1.type == EXPRESSION_TYPE_INTEGER &&
             $3.type == EXPRESSION_TYPE_INTEGER)
         {
-          $$.value.integer = OPERATION(+, $1.value.integer, $3.value.integer);
-          $$.type = EXPRESSION_TYPE_INTEGER;
+          int64_t i1 = $1.value.integer;
+          int64_t i2 = $3.value.integer;
+
+          if (!IS_UNDEFINED(i1) && !IS_UNDEFINED(i2) &&
+              (
+                (i2 > 0 && i1 > INT64_MAX - i2) ||
+                (i2 < 0 && i1 < INT64_MIN - i2)
+              ))
+          {
+            yr_compiler_set_error_extra_info_fmt(
+                compiler, "%" PRId64 " + %" PRId64, i1, i2);
+
+            compiler->last_result = ERROR_INTEGER_OVERFLOW;
+          }
+          else
+          {
+            $$.value.integer = OPERATION(+, i1, i2);
+            $$.type = EXPRESSION_TYPE_INTEGER;
+          }
         }
         else
         {
           $$.type = EXPRESSION_TYPE_FLOAT;
         }
+
+        fail_if(compiler->last_result != ERROR_SUCCESS);
       }
     | primary_expression '-' primary_expression
       {
         compiler->last_result = yr_parser_reduce_operation(
             yyscanner, "-", $1, $3);
 
-        ERROR_IF(compiler->last_result != ERROR_SUCCESS);
-
         if ($1.type == EXPRESSION_TYPE_INTEGER &&
             $3.type == EXPRESSION_TYPE_INTEGER)
         {
-          $$.value.integer = OPERATION(-, $1.value.integer, $3.value.integer);
-          $$.type = EXPRESSION_TYPE_INTEGER;
+          int64_t i1 = $1.value.integer;
+          int64_t i2 = $3.value.integer;
+
+          if (!IS_UNDEFINED(i1) && !IS_UNDEFINED(i2) &&
+              (
+                (i2 < 0 && i1 > INT64_MAX + i2) ||
+                (i2 > 0 && i1 < INT64_MIN + i2)
+              ))
+          {
+            yr_compiler_set_error_extra_info_fmt(
+                compiler, "%" PRId64 " - %" PRId64, i1, i2);
+
+            compiler->last_result = ERROR_INTEGER_OVERFLOW;
+          }
+          else
+          {
+            $$.value.integer = OPERATION(-, i1, i2);
+            $$.type = EXPRESSION_TYPE_INTEGER;
+          }
         }
         else
         {
           $$.type = EXPRESSION_TYPE_FLOAT;
         }
+
+        fail_if(compiler->last_result != ERROR_SUCCESS);
       }
     | primary_expression '*' primary_expression
       {
         compiler->last_result = yr_parser_reduce_operation(
             yyscanner, "*", $1, $3);
 
-        ERROR_IF(compiler->last_result != ERROR_SUCCESS);
-
         if ($1.type == EXPRESSION_TYPE_INTEGER &&
             $3.type == EXPRESSION_TYPE_INTEGER)
         {
-          $$.value.integer = OPERATION(*, $1.value.integer, $3.value.integer);
-          $$.type = EXPRESSION_TYPE_INTEGER;
+          int64_t i1 = $1.value.integer;
+          int64_t i2 = $3.value.integer;
+
+          if (!IS_UNDEFINED(i1) && !IS_UNDEFINED(i2) &&
+              (
+                i2 != 0 && llabs(i1) > INT64_MAX / llabs(i2)
+              ))
+          {
+            yr_compiler_set_error_extra_info_fmt(
+                compiler, "%" PRId64 " * %" PRId64, i1, i2);
+
+            compiler->last_result = ERROR_INTEGER_OVERFLOW;
+          }
+          else
+          {
+            $$.value.integer = OPERATION(*, i1, i2);
+            $$.type = EXPRESSION_TYPE_INTEGER;
+          }
         }
         else
         {
           $$.type = EXPRESSION_TYPE_FLOAT;
         }
+
+        fail_if(compiler->last_result != ERROR_SUCCESS);
       }
     | primary_expression '\\' primary_expression
       {
         compiler->last_result = yr_parser_reduce_operation(
             yyscanner, "\\", $1, $3);
-
-        ERROR_IF(compiler->last_result != ERROR_SUCCESS);
 
         if ($1.type == EXPRESSION_TYPE_INTEGER &&
             $3.type == EXPRESSION_TYPE_INTEGER)
@@ -1835,18 +1893,19 @@ primary_expression
           else
           {
             compiler->last_result = ERROR_DIVISION_BY_ZERO;
-            ERROR_IF(compiler->last_result != ERROR_SUCCESS);
           }
         }
         else
         {
           $$.type = EXPRESSION_TYPE_FLOAT;
         }
+
+        fail_if(compiler->last_result != ERROR_SUCCESS);
       }
     | primary_expression '%' primary_expression
       {
-        CHECK_TYPE($1, EXPRESSION_TYPE_INTEGER, "%");
-        CHECK_TYPE($3, EXPRESSION_TYPE_INTEGER, "%");
+        check_type($1, EXPRESSION_TYPE_INTEGER, "%");
+        check_type($3, EXPRESSION_TYPE_INTEGER, "%");
 
         yr_parser_emit(yyscanner, OP_MOD, NULL);
 
@@ -1858,13 +1917,13 @@ primary_expression
         else
         {
           compiler->last_result = ERROR_DIVISION_BY_ZERO;
-          ERROR_IF(compiler->last_result != ERROR_SUCCESS);
+          fail_if(compiler->last_result != ERROR_SUCCESS);
         }
       }
     | primary_expression '^' primary_expression
       {
-        CHECK_TYPE($1, EXPRESSION_TYPE_INTEGER, "^");
-        CHECK_TYPE($3, EXPRESSION_TYPE_INTEGER, "^");
+        check_type($1, EXPRESSION_TYPE_INTEGER, "^");
+        check_type($3, EXPRESSION_TYPE_INTEGER, "^");
 
         yr_parser_emit(yyscanner, OP_BITWISE_XOR, NULL);
 
@@ -1873,8 +1932,8 @@ primary_expression
       }
     | primary_expression '&' primary_expression
       {
-        CHECK_TYPE($1, EXPRESSION_TYPE_INTEGER, "^");
-        CHECK_TYPE($3, EXPRESSION_TYPE_INTEGER, "^");
+        check_type($1, EXPRESSION_TYPE_INTEGER, "^");
+        check_type($3, EXPRESSION_TYPE_INTEGER, "^");
 
         yr_parser_emit(yyscanner, OP_BITWISE_AND, NULL);
 
@@ -1883,8 +1942,8 @@ primary_expression
       }
     | primary_expression '|' primary_expression
       {
-        CHECK_TYPE($1, EXPRESSION_TYPE_INTEGER, "|");
-        CHECK_TYPE($3, EXPRESSION_TYPE_INTEGER, "|");
+        check_type($1, EXPRESSION_TYPE_INTEGER, "|");
+        check_type($3, EXPRESSION_TYPE_INTEGER, "|");
 
         yr_parser_emit(yyscanner, OP_BITWISE_OR, NULL);
 
@@ -1893,7 +1952,7 @@ primary_expression
       }
     | '~' primary_expression
       {
-        CHECK_TYPE($2, EXPRESSION_TYPE_INTEGER, "~");
+        check_type($2, EXPRESSION_TYPE_INTEGER, "~");
 
         yr_parser_emit(yyscanner, OP_BITWISE_NOT, NULL);
 
@@ -1903,23 +1962,31 @@ primary_expression
       }
     | primary_expression _SHIFT_LEFT_ primary_expression
       {
-        CHECK_TYPE($1, EXPRESSION_TYPE_INTEGER, "<<");
-        CHECK_TYPE($3, EXPRESSION_TYPE_INTEGER, "<<");
+        check_type($1, EXPRESSION_TYPE_INTEGER, "<<");
+        check_type($3, EXPRESSION_TYPE_INTEGER, "<<");
 
         yr_parser_emit(yyscanner, OP_SHL, NULL);
 
+        if (!IS_UNDEFINED($3.value.integer) && $3.value.integer >= 64)
+          $$.value.integer = 0;
+        else
+          $$.value.integer = OPERATION(<<, $1.value.integer, $3.value.integer);
+
         $$.type = EXPRESSION_TYPE_INTEGER;
-        $$.value.integer = OPERATION(<<, $1.value.integer, $3.value.integer);
       }
     | primary_expression _SHIFT_RIGHT_ primary_expression
       {
-        CHECK_TYPE($1, EXPRESSION_TYPE_INTEGER, ">>");
-        CHECK_TYPE($3, EXPRESSION_TYPE_INTEGER, ">>");
+        check_type($1, EXPRESSION_TYPE_INTEGER, ">>");
+        check_type($3, EXPRESSION_TYPE_INTEGER, ">>");
 
         yr_parser_emit(yyscanner, OP_SHR, NULL);
 
+        if (!IS_UNDEFINED($3.value.integer) && $3.value.integer >= 64)
+          $$.value.integer = 0;
+        else
+          $$.value.integer = OPERATION(<<, $1.value.integer, $3.value.integer);
+
         $$.type = EXPRESSION_TYPE_INTEGER;
-        $$.value.integer = OPERATION(>>, $1.value.integer, $3.value.integer);
       }
     | regexp
       {
