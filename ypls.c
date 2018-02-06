@@ -450,18 +450,16 @@ void scan_dir(
 
 #endif
 
-void print_string(
-	uint8_t* data,
+static void print_string(
+	const uint8_t* data,
 	int length)
 {
-	char* str = (char*)(data);
-
 	for (int i = 0; i < length; i++)
 	{
-		if (str[i] >= 32 && str[i] <= 126)
-			printf("%c", str[i]);
+		if (data[i] >= 32 && data[i] <= 126)
+			printf("%c", data[i]);
 		else
-			printf("\\x%02X", (uint8_t)str[i]);
+			printf("\\x%02X", data[i]);
 	}
 
 	printf("\n");
@@ -507,12 +505,12 @@ void print_escaped(
 }
 
 
-void print_hex_string(
-	uint8_t* data,
+static void print_hex_string(
+	const uint8_t* data,
 	int length)
 {
 	for (int i = 0; i < min(32, length); i++)
-		printf("%s%02X", (i == 0 ? "" : " "), (uint8_t)data[i]);
+		printf("%s%02X", (i == 0 ? "" : " "), data[i]);
 
 	puts(length > 32 ? " ..." : "");
 }
@@ -738,7 +736,7 @@ int handle_message(
 }
 
 
-int callback(
+static int callback(
 	int message,
 	void* message_data,
 	void* user_data)
@@ -762,7 +760,7 @@ int callback(
 		{
 			if (strcmp(module_data->module_name, mi->module_name) == 0)
 			{
-				mi->module_data = module_data->mapped_file.data;
+				mi->module_data = (void*)module_data->mapped_file.data;
 				mi->module_data_size = module_data->mapped_file.size;
 				break;
 			}

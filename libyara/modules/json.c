@@ -77,7 +77,7 @@ int module_load(YR_SCAN_CONTEXT* context, YR_OBJECT* module_object, void* module
 	  return ERROR_SUCCESS;
 
   YR_MEMORY_BLOCK* block = first_memory_block(context);
-  uint8_t* block_data = block->fetch_data(block);
+  uint8_t* block_data = (uint8_t*)block->fetch_data(block);
 
   json_error_t json_error;
   json_t* json = json_loads((const char*) block_data, 0, &json_error);

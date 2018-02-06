@@ -280,7 +280,7 @@ static int _yr_scan_add_match_to_list(
   YR_MATCH* insertion_point = matches_list->tail;
 
   if (matches_list->count == MAX_STRING_MATCHES)
-    return ERROR_TOO_MANY_MATCHES;
+    return ERROR_SUCCESS;
 
   while (insertion_point != NULL)
   {
@@ -757,7 +757,7 @@ static int _yr_scan_verify_literal_match(
 	if (STRING_IS_LEET(string) && STRING_IS_WIDE(string) && forward_matches == 0)
 	{
 		forward_matches = _yr_scan_lwicompare(
-			data + offset,
+			(uint8_t*)data + offset,
 			data_size - offset,
 			string->string,
 			string->length);
@@ -766,7 +766,7 @@ static int _yr_scan_verify_literal_match(
 	if (STRING_IS_LEET(string) && forward_matches == 0)
 	{
 		forward_matches = _yr_scan_licompare(
-			data + offset,
+			(uint8_t*)data + offset,
 			data_size - offset,
 			string->string,
 			string->length);
@@ -795,7 +795,7 @@ static int _yr_scan_verify_literal_match(
 	if (STRING_IS_WIDE(string) && STRING_IS_LEET(string) && forward_matches == 0)
 	{
 		forward_matches = _yr_scan_lwcompare(
-			data + offset,
+			(uint8_t*)data + offset,
 			data_size - offset,
 			string->string,
 			string->length);
@@ -804,7 +804,7 @@ static int _yr_scan_verify_literal_match(
 	if (STRING_IS_LEET(string) && forward_matches == 0)
 	{
 		forward_matches = _yr_scan_lcompare(
-			data + offset,
+			(uint8_t*)data + offset,
 			data_size - offset,
 			string->string,
 			string->length);
