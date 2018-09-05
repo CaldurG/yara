@@ -46,56 +46,59 @@ extern int yara_yydebug;
    /* Put the tokens into the symbol table, so that GDB and other debuggers
       know about them.  */
    enum yytokentype {
-     _DOT_DOT_ = 258,
-     _RULE_ = 259,
-     _PRIVATE_ = 260,
-     _GLOBAL_ = 261,
-     _META_ = 262,
-     _STRINGS_ = 263,
-     _CONDITION_ = 264,
-     _IDENTIFIER_ = 265,
-     _STRING_IDENTIFIER_ = 266,
-     _STRING_COUNT_ = 267,
-     _STRING_OFFSET_ = 268,
-     _STRING_LENGTH_ = 269,
-     _STRING_IDENTIFIER_WITH_WILDCARD_ = 270,
-     _NUMBER_ = 271,
-     _DOUBLE_ = 272,
-     _INTEGER_FUNCTION_ = 273,
-     _TEXT_STRING_ = 274,
-     _HEX_STRING_ = 275,
-     _REGEXP_ = 276,
-     _ASCII_ = 277,
-     _WIDE_ = 278,
-     _NOCASE_ = 279,
-     _FULLWORD_ = 280,
-     _LEET_ = 281,
-     _AT_ = 282,
-     _FILESIZE_ = 283,
-     _ENTRYPOINT_ = 284,
-     _ALL_ = 285,
-     _ANY_ = 286,
-     _IN_ = 287,
-     _OF_ = 288,
-     _FOR_ = 289,
-     _THEM_ = 290,
-     _MATCHES_ = 291,
-     _CONTAINS_ = 292,
-     _IMPORT_ = 293,
-     _TRUE_ = 294,
-     _FALSE_ = 295,
-     _OR_ = 296,
-     _AND_ = 297,
-     _NEQ_ = 298,
-     _EQ_ = 299,
-     _GE_ = 300,
-     _GT_ = 301,
-     _LE_ = 302,
+     _END_OF_FILE_ = 0,
+     _END_OF_INCLUDED_FILE_ = 258,
+     _DOT_DOT_ = 259,
+     _RULE_ = 260,
+     _PRIVATE_ = 261,
+     _GLOBAL_ = 262,
+     _META_ = 263,
+     _STRINGS_ = 264,
+     _CONDITION_ = 265,
+     _IDENTIFIER_ = 266,
+     _STRING_IDENTIFIER_ = 267,
+     _STRING_COUNT_ = 268,
+     _STRING_OFFSET_ = 269,
+     _STRING_LENGTH_ = 270,
+     _STRING_IDENTIFIER_WITH_WILDCARD_ = 271,
+     _NUMBER_ = 272,
+     _DOUBLE_ = 273,
+     _INTEGER_FUNCTION_ = 274,
+     _TEXT_STRING_ = 275,
+     _HEX_STRING_ = 276,
+     _REGEXP_ = 277,
+     _ASCII_ = 278,
+     _WIDE_ = 279,
+     _XOR_ = 280,
+     _NOCASE_ = 281,
+     _FULLWORD_ = 282,
+     _LEET_ = 283,
+     _AT_ = 284,
+     _FILESIZE_ = 285,
+     _ENTRYPOINT_ = 286,
+     _ALL_ = 287,
+     _ANY_ = 288,
+     _IN_ = 289,
+     _OF_ = 290,
+     _FOR_ = 291,
+     _THEM_ = 292,
+     _MATCHES_ = 293,
+     _CONTAINS_ = 294,
+     _IMPORT_ = 295,
+     _TRUE_ = 296,
+     _FALSE_ = 297,
+     _OR_ = 298,
+     _AND_ = 299,
+     _NOT_ = 300,
+     _EQ_ = 301,
+     _NEQ_ = 302,
      _LT_ = 303,
-     _SHIFT_RIGHT_ = 304,
-     _SHIFT_LEFT_ = 305,
-     UNARY_MINUS = 306,
-     _NOT_ = 307
+     _LE_ = 304,
+     _GT_ = 305,
+     _GE_ = 306,
+     _SHIFT_LEFT_ = 307,
+     _SHIFT_RIGHT_ = 308,
+     UNARY_MINUS = 309
    };
 #endif
 
@@ -104,7 +107,7 @@ extern int yara_yydebug;
 typedef union YYSTYPE
 {
 /* Line 2058 of yacc.c  */
-#line 216 "grammar.y"
+#line 237 "grammar.y"
 
   EXPRESSION      expression;
   SIZED_STRING*   sized_string;
@@ -117,7 +120,7 @@ typedef union YYSTYPE
 
 
 /* Line 2058 of yacc.c  */
-#line 121 "grammar.h"
+#line 124 "grammar.tab.h"
 } YYSTYPE;
 # define YYSTYPE_IS_TRIVIAL 1
 # define yystype YYSTYPE /* obsolescent; will be withdrawn */
