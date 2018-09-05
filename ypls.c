@@ -158,7 +158,7 @@ static int count = 0;
 static int limit = 0;
 static int timeout = 1000000;
 static int stack_size = DEFAULT_STACK_SIZE;
-static int threads = MAX_THREADS;
+static int threads = YR_MAX_THREADS;
 static int fail_on_warnings = FALSE;
 static int max_strings_per_rule = DEFAULT_MAX_STRINGS_PER_RULE;
 
@@ -292,7 +292,7 @@ void file_queue_finish()
 {
 	int i;
 
-	for (i = 0; i < MAX_THREADS; i++)
+	for (i = 0; i < YR_MAX_THREADS; i++)
 		semaphore_release(&used_slots);
 }
 
@@ -1057,9 +1057,9 @@ int process_arguments(int argc, const char** argv) {
 		return EXIT_SUCCESS;
 	}
 
-	if (threads > MAX_THREADS)
+	if (threads > YR_MAX_THREADS)
 	{
-		fprintf(stderr, "maximum number of threads is %d\n", MAX_THREADS);
+		fprintf(stderr, "maximum number of threads is %d\n", YR_MAX_THREADS);
 		return EXIT_FAILURE;
 	}
 
