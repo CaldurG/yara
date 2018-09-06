@@ -137,6 +137,7 @@ typedef struct _MESSAGE
 } MESSAGE;
 
 
+static char* atom_quality_table;
 static char* tags[MAX_ARGS_TAG + 1];
 static char* identifiers[MAX_ARGS_IDENTIFIER + 1];
 static char* ext_vars[MAX_ARGS_EXT_VAR + 1];
@@ -513,6 +514,48 @@ static void print_hex_string(
 		printf("%s%02X", (i == 0 ? "" : " "), data[i]);
 
 	puts(length > 32 ? " ..." : "");
+}
+
+
+static void print_error(
+  int error)
+{
+  switch (error)
+  {
+  case ERROR_SUCCESS:
+    break;
+  case ERROR_COULD_NOT_ATTACH_TO_PROCESS:
+    fprintf(stderr, "can not attach to process (try running as root)\n");
+    break;
+  case ERROR_INSUFFICIENT_MEMORY:
+    fprintf(stderr, "not enough memory\n");
+    break;
+  case ERROR_SCAN_TIMEOUT:
+    fprintf(stderr, "scanning timed out\n");
+    break;
+  case ERROR_COULD_NOT_OPEN_FILE:
+    fprintf(stderr, "could not open file\n");
+    break;
+  case ERROR_UNSUPPORTED_FILE_VERSION:
+    fprintf(stderr, "rules were compiled with a different version of YARA\n");
+    break;
+  case ERROR_CORRUPT_FILE:
+    fprintf(stderr, "corrupt compiled rules file.\n");
+    break;
+  case ERROR_EXEC_STACK_OVERFLOW:
+    fprintf(stderr, "stack overflow while evaluating condition "
+      "(see --stack-size argument) \n");
+    break;
+  case ERROR_INVALID_EXTERNAL_VARIABLE_TYPE:
+    fprintf(stderr, "invalid type for external variable\n");
+    break;
+  case ERROR_TOO_MANY_MATCHES:
+    fprintf(stderr, "too many matches\n");
+    break;
+  default:
+    fprintf(stderr, "internal error: %d\n", error);
+    break;
+  }
 }
 
 
@@ -1093,7 +1136,8 @@ int load_rules(const char* filename, YR_RULES** rules) {
 	// different from those exit with error.
 
 	if (result != ERROR_SUCCESS &&
-		result != ERROR_INVALID_FILE)
+      result != ERROR_COULD_NOT_OPEN_FILE &&
+		  result != ERROR_INVALID_FILE)
 	{
 		print_scanner_error(result);
 		exit_with_code(EXIT_FAILURE);
@@ -1124,6 +1168,19 @@ int load_rules(const char* filename, YR_RULES** rules) {
 			print_scanner_error(result);
 			exit_with_code(EXIT_FAILURE);
 		}
+
+    if (atom_quality_table != NULL)
+    {
+      result = yr_compiler_load_atom_quality_table(
+        compiler, atom_quality_table, 0);
+
+      if (result != ERROR_SUCCESS)
+      {
+        fprintf(stderr, "error loading atom quality table: ");
+        print_error(result);
+        exit_with_code(EXIT_FAILURE);
+      }
+    }
 
 		cr.errors = 0;
 		cr.warnings = 0;
@@ -1442,7 +1499,7 @@ int main(int argc, const char** argv)
 				break;
 
 			if (message.type != MSG_TYPE_READY)
-				result = scan(rules, &message);
+        scan(rules, &message);
 		}
 		else
 			fail();
@@ -1459,9 +1516,9 @@ _exit:
 
 	yr_finalize();
 
-#if defined(_DEBUG)
+  #if defined(_DEBUG)
 	_CrtDumpMemoryLeaks();
-#endif
+  #endif
 
 	return result;
 }
